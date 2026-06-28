@@ -10,9 +10,9 @@ A living map of what's built and what's left. We tick boxes as we go.
 - [x] `.gitignore`
 - [x] Git repo + first commit
 - [x] GitHub remote connected + pushed
-- [ ] `PROGRESS.md` (this file) pushed
-- [ ] TypeScript installed + configured
-- [ ] Folder structure (`src/`)
+- [x] `PROGRESS.md` (this file) pushed
+- [x] TypeScript installed + configured
+- [x] Folder structure (`src/`)
 
 ---
 
