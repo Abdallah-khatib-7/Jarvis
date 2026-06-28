@@ -1,0 +1,20 @@
+{
+  "name": "jarvis",
+  "version": "0.1.0",
+  "description": "A terminal-based, natural-language agentic AI assistant.",
+  "author": "Abdallah Khatib",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "jarvis": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
