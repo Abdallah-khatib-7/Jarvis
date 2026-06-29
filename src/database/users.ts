@@ -46,3 +46,13 @@ export function getUserId(username: string): number | undefined {
     .get(username) as { id: number } | undefined;
   return row?.id;
 }
+
+
+/* removes the user and everything tied to them; used by the age gate */
+export function deleteUser(userId: number): void {
+  const tx = db.transaction((id: number) => {
+    db.prepare("DELETE FROM memory WHERE user_id = ?").run(id);
+    db.prepare("DELETE FROM users WHERE id = ?").run(id);
+  });
+  tx(userId);
+}

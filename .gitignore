@@ -13,7 +13,7 @@ dist/
 *.sqlite
 *.sqlite3
 *.db
-
+cleanup.ts
 # Logs
 *.log
 npm-debug.log*
@@ -23,3 +23,5 @@ npm-debug.log*
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+
+jarvis.db

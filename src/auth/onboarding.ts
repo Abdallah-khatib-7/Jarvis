@@ -1,29 +1,137 @@
 import chalk from "chalk";
 import { setFact } from "../database/memory.js";
-import { askText } from "./prompts.js";
+import { deleteUser } from "../database/users.js";
+import { askText, askRaw, askChoice, askConfirm } from "./prompts.js";
+import { selfDestruct, underageFarewell } from "./effects.js";
 import type { Session } from "./login.js";
 
-/* the fixed seed questions; key is how the fact is stored in memory */
-const QUESTIONS: { key: string; prompt: string }[] = [
-  { key: "preferred_name", prompt: "What should I call you?" },
-  { key: "role", prompt: "What do you do?" },
-  { key: "building", prompt: "What are you working on these days?" },
-];
+const MIN_AGE = 16;
 
-/* runs once, right after signup; writes each answer into memory */
-export async function runOnboarding(session: Session): Promise<void> {
-  console.log(
-    chalk.cyan("\nBefore we begin, let me get to know you a little.\n")
-  );
+function parseAge(raw: string): number | null {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0 || n > 120) return null;
+  return n;
+}
 
-  for (const q of QUESTIONS) {
-    const answer = await askText(q.prompt);
+async function askAge(session: Session): Promise<number> {
+  let warned = false;
 
-    /* skip empties so we don't store blank facts */
-    if (answer.trim().length > 0) {
-      setFact(session.id, q.key, answer.trim());
+  while (true) {
+    const raw = await askRaw("How old are you?");
+    const age = parseAge(raw);
+
+    if (age === null) {
+      if (!warned) {
+        console.log(
+          chalk.yellow.bold("\nI am JARVIS. You can't fool me with that.\n") +
+            chalk.yellow("Enter a real age. LAST TRY.\n")
+        );
+        warned = true;
+        continue;
+      }
+      await selfDestruct();
+      deleteUser(session.id);
+      process.exit(0);
     }
+
+    if (age < MIN_AGE) {
+      await underageFarewell();
+      deleteUser(session.id);
+      process.exit(0);
+    }
+
+    return age;
+  }
+}
+
+/* asks major only for university; keeps the branch in one place */
+async function askMajor(session: Session): Promise<void> {
+  const major = await askText("What's your major?");
+  if (major.trim()) setFact(session.id, "major", major.trim());
+}
+
+/* records the picked level and chases the right follow-up */
+async function recordLevel(session: Session, level: string): Promise<void> {
+  setFact(session.id, "education_level", level);
+
+  if (level === "university") {
+    console.log(
+      chalk.cyan("\nUniversity already — early access at your age. Impressive.\n")
+    );
+    await askMajor(session);
+  } else if (level === "not_in_school") {
+    console.log(
+      chalk.cyan("\nGot it — learning happens everywhere, not just classrooms.\n")
+    );
+  }
+}
+
+/* age-aware: under 18 JARVIS guesses high school and confirms; 18+ asks plainly */
+async function educationFlow(session: Session, age: number): Promise<void> {
+  if (age < 18) {
+    const guessed = await askConfirm(
+      `Since you're ${age}, I'd guess you're in high school — am I right?`
+    );
+
+    if (guessed) {
+      await recordLevel(session, "high_school");
+      return;
+    }
+
+    const level = await askChoice("My mistake. Where do you actually stand?", [
+      { name: "University / college", value: "university" },
+      { name: "Already graduated", value: "graduated" },
+      { name: "Not in school / other", value: "not_in_school" },
+    ]);
+    await recordLevel(session, level);
+    return;
   }
 
-  console.log(chalk.green("\nGot it. I'll remember that.\n"));
+  /* 18+ is genuinely ambiguous, so ask outright */
+  const status = await askChoice("Are you a student or a graduate?", [
+    { name: "Student", value: "student" },
+    { name: "Graduate", value: "graduated" },
+    { name: "Neither", value: "not_in_school" },
+  ]);
+
+  if (status === "student") {
+    const level = await askChoice("Where are you studying?", [
+      { name: "High school", value: "high_school" },
+      { name: "University", value: "university" },
+    ]);
+    await recordLevel(session, level);
+  } else {
+    await recordLevel(session, status);
+  }
+}
+
+export async function runOnboarding(session: Session): Promise<void> {
+  console.log(chalk.cyan("\nBefore we begin, let me get to know you.\n"));
+
+  const name = await askText("What should I call you?");
+  if (name.trim()) setFact(session.id, "preferred_name", name.trim());
+
+  const gender = await askChoice("Your gender?", [
+    { name: "Male", value: "male" },
+    { name: "Female", value: "female" },
+    { name: "Prefer not to say", value: "unspecified" },
+  ]);
+  setFact(session.id, "gender", gender);
+
+  const age = await askAge(session);
+  setFact(session.id, "age", String(age));
+
+  /* school section comes before job/role now */
+  await educationFlow(session, age);
+
+  const role = await askText("And what do you do? (your role or job)");
+  if (role.trim()) setFact(session.id, "role", role.trim());
+
+  const about = await askText("Describe yourself in a sentence or two.");
+  if (about.trim()) setFact(session.id, "about", about.trim());
+
+  const dessert = await askText("Last one — your favorite dessert?");
+  if (dessert.trim()) setFact(session.id, "favorite_dessert", dessert.trim());
+
+  console.log(chalk.green("\nNoted. I'll remember all of that.\n"));
 }
