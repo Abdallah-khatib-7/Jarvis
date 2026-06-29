@@ -1,10 +1,17 @@
 import inquirer from "inquirer";
 import chalk from "chalk";
-import { userExists, createUser, verifyUser } from "../database/users.js";
+import {
+  userExists,
+  createUser,
+  verifyUser,
+  getUserId,
+} from "../database/users.js";
 import { askText, askPassword } from "./prompts.js";
 
 export interface Session {
+  id: number;
   username: string;
+  isNew: boolean;
 }
 
 const BACK = Symbol("back");
@@ -33,9 +40,9 @@ async function signUp(): Promise<Outcome> {
 
     const password = await askNewPassword();
 
-    createUser(username, password);
+    const id = createUser(username, password);
     console.log(chalk.green(`\nAccount created. Welcome, ${username}.\n`));
-    return { username };
+    return { id, username, isNew: true };
   }
 }
 
@@ -70,8 +77,9 @@ async function signIn(): Promise<Outcome | null> {
     const password = await askPassword("Password:");
 
     if (verifyUser(username, password)) {
+      const id = getUserId(username)!;
       console.log(chalk.green(`\nWelcome back, ${username}.\n`));
-      return { username };
+      return { id, username , isNew: false };
     }
 
     const left = 3 - attempt;

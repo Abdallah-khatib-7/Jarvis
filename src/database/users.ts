@@ -39,3 +39,10 @@ export function verifyUser(username: string, password: string): boolean {
   if (!user) return false;
   return bcrypt.compareSync(password, user.password_hash);
 }
+
+export function getUserId(username: string): number | undefined {
+  const row = db
+    .prepare("SELECT id FROM users WHERE username = ?")
+    .get(username) as { id: number } | undefined;
+  return row?.id;
+}
