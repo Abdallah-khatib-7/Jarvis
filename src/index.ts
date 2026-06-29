@@ -2,6 +2,7 @@ import "./database/db.js";
 import { showBoot } from "./boot.js";
 import { authenticate } from "./auth/login.js";
 import { runOnboarding } from "./auth/onboarding.js";
+import { generateWelcome } from "./auth/welcome.js";
 
 await showBoot();
 
@@ -16,4 +17,5 @@ if (session.isNew) {
   await runOnboarding(session);
 }
 
-console.log(`\nSession started for ${session.username}.`);
+const welcome = await generateWelcome(session);
+console.log("\n" + welcome + "\n");
