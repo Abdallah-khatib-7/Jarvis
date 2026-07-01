@@ -33,8 +33,9 @@ A living map of what's built and what's left. We tick boxes as we go.
 - [x] `search_files` tool (recursive project search, skips node_modules/.git/dist)
 - [x] Live status spinner UI (`withThinking`, rotating phrases)
 - [x] Ongoing chat loop (`src/chat/loop.ts`) — persistent conversation, not one-shot
-- [~] `read_file` line-numbering fix — in progress, verify it landed
-- [ ] Real execution capability (run `tsc`, run shell commands) — next real milestone
+- [x] `read_file` line-numbering — 1-indexed prefixes in place
+- [x] `grep_files` tool — content search with regex, file:line results
+- [x] Real execution capability — `execute_command` tool; safe commands (tsc, npm test, git status, etc.) run automatically; destructive commands require typed confirm-phrase
 
 ## Phase 3 — Destructive file ops
 - [ ] `edit_file` (behind confirm-phrase)

@@ -90,9 +90,13 @@ export const openAIProvider: AIProvider = {
       });
 
       for (const call of toolCalls) {
-        console.log(`\n[tool call] ${call.name}(${JSON.stringify(call.arguments)})`);
+        if (process.env.DEBUG) {
+          console.log(`\n[tool call] ${call.name}(${JSON.stringify(call.arguments)})`);
+        }
         const result = await runTool(call.name, call.arguments);
-        console.log(`[tool result] ok=${result.ok} output=${result.output.slice(0, 150)}\n`);
+        if (process.env.DEBUG) {
+          console.log(`[tool result] ok=${result.ok} output=${result.output.slice(0, 150)}\n`);
+        }
         conversation.push({
           role: "tool",
           content: result.output,

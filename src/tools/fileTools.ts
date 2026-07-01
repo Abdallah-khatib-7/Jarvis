@@ -1,7 +1,6 @@
-import { readFile, readdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { readFile, readdir, stat } from "node:fs/promises";
+import { join, resolve, extname } from "node:path";
 
-/* every tool result comes back in this shape so the AI loop can handle success/failure uniformly */
 export interface ToolResult {
   ok: boolean;
   output: string;
@@ -34,10 +33,8 @@ export async function listDirectoryTool(path: string): Promise<ToolResult> {
   }
 }
 
+const IGNORE_DIRS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".next"]);
 
-const IGNORE_DIRS = new Set(["node_modules", ".git", "dist"]);
-
-/* walks the project tree looking for filenames that contain the query */
 export async function searchFilesTool(query: string): Promise<ToolResult> {
   const root = resolve(".");
   const matches: string[] = [];
@@ -63,5 +60,83 @@ export async function searchFilesTool(query: string): Promise<ToolResult> {
     return { ok: true, output: matches.join("\n") };
   } catch (err) {
     return { ok: false, output: `Search failed: ${(err as Error).message}` };
+  }
+}
+
+const BINARY_EXTENSIONS = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
+  ".woff", ".woff2", ".ttf", ".eot",
+  ".pdf", ".zip", ".gz", ".tar", ".7z",
+  ".db", ".sqlite",
+  ".map", ".lock",
+]);
+
+const MAX_GREP_FILE_BYTES = 500 * 1024;
+const MAX_GREP_RESULTS = 100;
+
+export async function grepFilesTool(pattern: string, searchPath?: string): Promise<ToolResult> {
+  const root = resolve(".");
+  const searchRoot = resolve(searchPath ?? ".");
+
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern, "i");
+  } catch {
+    return { ok: false, output: `Invalid regex pattern: "${pattern}"` };
+  }
+
+  const results: string[] = [];
+
+  async function walk(dir: string): Promise<void> {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (IGNORE_DIRS.has(entry.name)) continue;
+      const full = join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(full);
+        continue;
+      }
+
+      if (BINARY_EXTENSIONS.has(extname(entry.name).toLowerCase())) continue;
+
+      try {
+        const info = await stat(full);
+        if (info.size > MAX_GREP_FILE_BYTES) continue;
+
+        const content = await readFile(full, "utf-8");
+        const lines = content.split("\n");
+        const rel = full.replace(root, ".").replaceAll("\\", "/");
+
+        for (let i = 0; i < lines.length; i++) {
+          if (regex.test(lines[i])) {
+            results.push(`${rel}:${i + 1}: ${lines[i].trim()}`);
+            if (results.length >= MAX_GREP_RESULTS) return;
+          }
+        }
+      } catch {
+        // skip unreadable or binary files silently
+      }
+    }
+  }
+
+  try {
+    await walk(searchRoot);
+    if (results.length === 0) {
+      return { ok: false, output: `No content matches for "${pattern}".` };
+    }
+    const note =
+      results.length >= MAX_GREP_RESULTS
+        ? `\n\n... (capped at ${MAX_GREP_RESULTS} results — narrow your pattern if needed)`
+        : "";
+    return { ok: true, output: results.join("\n") + note };
+  } catch (err) {
+    return { ok: false, output: `Grep failed: ${(err as Error).message}` };
   }
 }
