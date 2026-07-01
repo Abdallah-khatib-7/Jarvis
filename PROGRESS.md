@@ -48,7 +48,11 @@ A living map of what's built and what's left. We tick boxes as we go.
 ## Phase 5 — Memory system
 - [x] Persistent structured facts (`src/database/memory.ts`, key/value per user)
 - [x] Fed into context each session (onboarding facts + personality inform every prompt)
-- [ ] Broader memory beyond onboarding (facts learned mid-conversation)
+- [x] `remember` tool — JARVIS stores facts proactively; magenta memory panel on every store
+- [x] `forget` tool — remove a fact by key
+- [x] `recall` tool — mid-conversation fact lookup (no UI, raw data to AI)
+- [x] System message rebuilt before every turn so mid-session facts are immediately live
+- [x] System prompt instructs proactive memory: preferences, project context, personal details
 
 ## Phase 6 — Personality + discoverability
 - [x] System prompt voice (4 selectable personalities: cinematic, warm, playful,

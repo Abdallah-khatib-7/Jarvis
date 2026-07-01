@@ -40,3 +40,10 @@ export function getAllFacts(userId: number): MemoryFact[] {
     .prepare("SELECT key, value FROM memory WHERE user_id = ? ORDER BY key")
     .all(userId) as MemoryFact[];
 }
+
+export function deleteFact(userId: number, key: string): boolean {
+  const result = db
+    .prepare("DELETE FROM memory WHERE user_id = ? AND key = ?")
+    .run(userId, key);
+  return result.changes > 0;
+}

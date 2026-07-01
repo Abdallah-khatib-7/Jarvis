@@ -4,7 +4,7 @@ import type { AIProvider, ChatMessage, ToolCall } from "./types.js";
 import { TOOL_DEFINITIONS, runTool } from "../tools/registry.js";
 
 const MODEL = "gpt-4o-mini";
-const MAX_TURNS = 6;
+const MAX_TURNS = 10;
 
 function getClient(): OpenAI {
   const key = process.env.OPENAI_API_KEY;

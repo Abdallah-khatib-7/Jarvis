@@ -7,6 +7,7 @@ import {
 } from "./fileTools.js";
 import { executeCommandTool } from "./shellTools.js";
 import { editFileTool, createFileTool, deleteFileTool } from "./editTools.js";
+import { rememberTool, forgetTool, recallTool } from "./memoryTools.js";
 
 export interface ToolDefinition {
   name: string;
@@ -67,8 +68,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         },
         path: {
           type: "string",
-          description:
-            "Optional directory to search within. Defaults to the project root.",
+          description: "Optional directory to search within. Defaults to the project root.",
         },
       },
       required: ["pattern"],
@@ -95,7 +95,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       "Replace an exact string in an existing file with new content. " +
       "Always read_file first to get the exact current text. " +
       "old_string must appear exactly once — include enough surrounding lines to make it unique. " +
-      "The user will see a diff and must type a confirm phrase before the change is applied.",
+      "The user will see a diff before the change is applied.",
     parameters: {
       type: "object",
       properties: {
@@ -103,7 +103,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         old_string: {
           type: "string",
           description:
-            "The exact text to find and replace. Must match the file contents character-for-character, including whitespace.",
+            "The exact text to find and replace. Must match file contents character-for-character including whitespace.",
         },
         new_string: {
           type: "string",
@@ -117,7 +117,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     name: "create_file",
     description:
       "Create a new file with the given content. Fails if the file already exists — use edit_file to modify existing files. " +
-      "The user will see a content preview and must confirm before the file is written.",
+      "The user will see a content preview before the file is written.",
     parameters: {
       type: "object",
       properties: {
@@ -130,13 +130,65 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "delete_file",
     description:
-      "Permanently delete a file. The user will see a file preview and must type a confirm phrase before deletion — this cannot be undone.",
+      "Permanently delete a file. The user will see a file preview and must confirm before deletion.",
     parameters: {
       type: "object",
       properties: {
         path: { type: "string", description: "Path to the file to delete." },
       },
       required: ["path"],
+    },
+  },
+  {
+    name: "remember",
+    description:
+      "Store a fact about the user in long-term memory. " +
+      "Call this proactively whenever you learn something worth keeping across sessions: " +
+      "preferences (coding style, tools, language), project context (what they're building, tech stack), " +
+      "or personal details (profession, goals). Use lowercase_snake_case keys. " +
+      "Calling remember overwrites any existing value for that key.",
+    parameters: {
+      type: "object",
+      properties: {
+        key: {
+          type: "string",
+          description:
+            "Snake_case identifier for this fact. E.g. preferred_language, current_project, works_as, uses_tabs.",
+        },
+        value: {
+          type: "string",
+          description: "The value to store. Keep it concise — one short phrase.",
+        },
+      },
+      required: ["key", "value"],
+    },
+  },
+  {
+    name: "forget",
+    description:
+      "Remove a stored fact from the user's memory by key. " +
+      "Use when the user says something you remembered was wrong, or explicitly asks you to forget something.",
+    parameters: {
+      type: "object",
+      properties: {
+        key: {
+          type: "string",
+          description: "The key of the fact to remove.",
+        },
+      },
+      required: ["key"],
+    },
+  },
+  {
+    name: "recall",
+    description:
+      "Retrieve all facts currently stored in the user's memory. " +
+      "Use this mid-conversation if you need to check what you know — " +
+      "especially after calling remember, since the system prompt reflects the state from when this session started.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
     },
   },
 ];
@@ -166,6 +218,12 @@ export async function runTool(
       return createFileTool(args.path as string, args.content as string);
     case "delete_file":
       return deleteFileTool(args.path as string);
+    case "remember":
+      return rememberTool(args.key as string, args.value as string);
+    case "forget":
+      return forgetTool(args.key as string);
+    case "recall":
+      return recallTool();
     default:
       return { ok: false, output: `Unknown tool: ${name}` };
   }
