@@ -1,12 +1,11 @@
 import { getAllFacts } from "../database/memory.js";
 import { openAIProvider } from "../ai/openai.js";
 import { withThinking } from "../ui/thinking.js";
+import { voiceFor, DEFAULT_PERSONALITY } from "../ai/personality.js";
 import type { ChatMessage } from "../ai/types.js";
 import type { Session } from "./login.js";
 
-/* the default voice for the very first impression */
-const DEFAULT_PERSONALITY =
-  "calm, dry wit, quietly confident — in the spirit of Iron Man's JARVIS";
+
 
 /* turn stored facts into a readable block the model can reason over */
 function factsBlock(session: Session): string {
@@ -17,8 +16,7 @@ function factsBlock(session: Session): string {
 
 function buildPrompt(session: Session): ChatMessage[] {
   const system =
-    `You are JARVIS — the AI from Iron Man. Dry wit, unflappable, quietly amused. ` +
-    `You speak with precision and a faint smirk, never gushing, never servile. ` +
+    `You are JARVIS — the AI from Iron Man. Voice: ${voiceFor(DEFAULT_PERSONALITY)}. ` +
     `You are NOT a customer-service bot. Forbidden: "It's a pleasure to meet you," ` +
     `"I must say," "Let's get started," "Welcome aboard," exclamation marks, and ` +
     `complimenting the user. ` +
