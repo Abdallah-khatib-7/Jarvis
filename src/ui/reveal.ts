@@ -4,7 +4,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/* wraps long text to the terminal width so it doesn't run off screen */
 function wrap(text: string, width: number): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
@@ -23,22 +22,38 @@ function wrap(text: string, width: number): string[] {
   return lines;
 }
 
-/* types text out line by line, character by character; the "JARVIS speaking" effect */
+async function typeLine(line: string, speedMs: number): Promise<void> {
+  for (const ch of line) {
+    process.stdout.write(chalk.cyanBright(ch));
+    await sleep(speedMs);
+  }
+  process.stdout.write("\n");
+}
+
+/* code blocks print instantly and untouched; only prose gets the typewriter treatment */
 export async function revealSpeech(
   text: string,
-  speedMs = 18
+  speedMs = 4
 ): Promise<void> {
   const cols = process.stdout.columns || 80;
   const width = Math.min(cols - 4, 90);
-  const lines = wrap(text.trim(), width);
 
   console.log("");
-  for (const line of lines) {
-    for (const ch of line) {
-      process.stdout.write(chalk.cyanBright(ch));
-      await sleep(speedMs);
+
+  const segments = text.trim().split(/(```[\s\S]*?```)/g);
+
+  for (const segment of segments) {
+    if (!segment.trim()) continue;
+
+    if (segment.startsWith("```")) {
+      console.log(chalk.gray(segment));
+      continue;
     }
-    process.stdout.write("\n");
+
+    for (const line of wrap(segment.trim(), width)) {
+      await typeLine(line, speedMs);
+    }
   }
+
   console.log("");
 }

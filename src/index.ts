@@ -5,6 +5,8 @@ import { runOnboarding } from "./auth/onboarding.js";
 import { generateWelcome } from "./auth/welcome.js";
 import { pickPersonality } from "./auth/personalityPicker.js";
 import { revealSpeech } from "./ui/reveal.js";
+import { runChatLoop } from "./chat/loop.js";
+import chalk from "chalk";
 
 
 await showBoot();
@@ -18,9 +20,11 @@ if (!session) {
 
 if (session.isNew) {
   await runOnboarding(session);
+  const welcome = await generateWelcome(session);
+  await revealSpeech(welcome);
+  await pickPersonality(session);
+} else {
+  console.log(chalk.dim(`\nWelcome back, ${session.username}.\n`));
 }
 
-const welcome = await generateWelcome(session);
-await revealSpeech(welcome);
-
-await pickPersonality(session);
+await runChatLoop(session);

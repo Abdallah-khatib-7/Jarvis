@@ -14,7 +14,6 @@ function getClient(): OpenAI {
   return new OpenAI({ apiKey: key });
 }
 
-/* translate our generic tool shape into OpenAI's exact function-calling format */
 function toOpenAITools(): OpenAI.Chat.Completions.ChatCompletionTool[] {
   return TOOL_DEFINITIONS.map((t) => ({
     type: "function",
@@ -26,7 +25,6 @@ function toOpenAITools(): OpenAI.Chat.Completions.ChatCompletionTool[] {
   }));
 }
 
-/* our ChatMessage -> OpenAI's expected message shape */
 function toOpenAIMessages(
   messages: ChatMessage[]
 ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
@@ -71,7 +69,6 @@ export const openAIProvider: AIProvider = {
       const choice = res.choices[0]?.message;
       if (!choice) return "";
 
-      /* no tool calls: this is the final answer */
       if (!choice.tool_calls?.length) {
         return choice.content ?? "";
       }
@@ -92,9 +89,10 @@ export const openAIProvider: AIProvider = {
         toolCalls,
       });
 
-      /* run each requested tool, feed results back as tool messages */
       for (const call of toolCalls) {
+        console.log(`\n[tool call] ${call.name}(${JSON.stringify(call.arguments)})`);
         const result = await runTool(call.name, call.arguments);
+        console.log(`[tool result] ok=${result.ok} output=${result.output.slice(0, 150)}\n`);
         conversation.push({
           role: "tool",
           content: result.output,
@@ -103,6 +101,11 @@ export const openAIProvider: AIProvider = {
       }
     }
 
-    return "I've hit my tool-use limit for this turn — try rephrasing.";
+    const fallback = await client.chat.completions.create({
+      model: MODEL,
+      messages: toOpenAIMessages(conversation),
+      temperature: 0.9,
+    });
+    return fallback.choices[0]?.message?.content ?? "I wasn't able to finish that one — try rephrasing.";
   },
 };
