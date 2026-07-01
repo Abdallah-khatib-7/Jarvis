@@ -70,9 +70,13 @@ A living map of what's built and what's left. We tick boxes as we go.
 - [ ] Gmail (OAuth2)
 
 ## Phase 8 — Multi-provider support
-- [ ] Provider picker
-- [ ] Adapter layer (Claude / Gemini / DeepSeek — OpenAI adapter already
-      built as the template)
+- [x] Claude adapter (`src/ai/claude.ts`) — full agentic loop, tool calling,
+      message format conversion (system extraction, tool_result bundling)
+- [x] Auto provider selection — Claude if ANTHROPIC_API_KEY set, OpenAI fallback;
+      user preference stored as `ai_provider` memory fact, re-resolved every turn
+- [x] Provider label shown at session start ("Claude (sonnet-4-6) · say something...")
+- [x] Mid-session switching — `remember("ai_provider", "claude|openai")` takes effect
+      on the next message without restarting
 - [ ] Shared-key daily token cap (75k/day)
 
 ## Phase 9 — Voice (stretch)

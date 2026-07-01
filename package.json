@@ -28,6 +28,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.109.0",
     "ansi-escapes": "^7.3.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.11.1",

@@ -1,15 +1,32 @@
 import chalk from "chalk";
 import { openAIProvider } from "../ai/openai.js";
+import { claudeProvider } from "../ai/claude.js";
+import type { AIProvider, ChatMessage } from "../ai/types.js";
 import { withThinking } from "../ui/thinking.js";
 import { revealSpeech } from "../ui/reveal.js";
 import { getFact, getAllFacts } from "../database/memory.js";
 import { voiceFor } from "../ai/personality.js";
 import { askRaw } from "../auth/prompts.js";
 import { setActiveUser } from "../tools/memoryTools.js";
-import type { ChatMessage } from "../ai/types.js";
 import type { Session } from "../auth/login.js";
 
 const PROMPT_ARROW = chalk.cyan("⟩");
+
+function resolveProvider(session: Session): AIProvider {
+  const pref = getFact(session.id, "ai_provider");
+  if (pref === "claude" && process.env.ANTHROPIC_API_KEY) return claudeProvider;
+  if (pref === "openai" && process.env.OPENAI_API_KEY) return openAIProvider;
+  /* Auto-select: Claude first (stronger), fall back to OpenAI */
+  if (process.env.ANTHROPIC_API_KEY) return claudeProvider;
+  if (process.env.OPENAI_API_KEY) return openAIProvider;
+  throw new Error(
+    "No AI provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in your .env file."
+  );
+}
+
+function providerLabel(p: AIProvider): string {
+  return p.name === "claude" ? "Claude (sonnet-4-6)" : "OpenAI (gpt-4o-mini)";
+}
 
 function factsBlock(session: Session): string {
   const facts = getAllFacts(session.id);
@@ -52,6 +69,7 @@ function buildSystemPrompt(session: Session): string {
     `  - Keys: lowercase_snake_case, values: one concise phrase.`,
     `  - Use forget when the user corrects something you remembered wrong.`,
     `  - Use recall if you need the latest facts mid-conversation.`,
+    `  - To switch AI provider: remember("ai_provider", "claude") or remember("ai_provider", "openai") — takes effect next message.`,
     ``,
     `Style:`,
     `  - Keep spoken replies short. Panels, diffs, and memory cards speak for themselves.`,
@@ -69,7 +87,10 @@ export async function runChatLoop(session: Session): Promise<void> {
     { role: "system", content: buildSystemPrompt(session) },
   ];
 
-  console.log(chalk.dim('\nSay something, or type "exit" to power down.\n'));
+  const initProvider = resolveProvider(session);
+  console.log(
+    chalk.dim(`\n${providerLabel(initProvider)} · say something, or type "exit" to power down.\n`)
+  );
 
   while (true) {
     const input = await askRaw(PROMPT_ARROW + " ");
@@ -80,8 +101,9 @@ export async function runChatLoop(session: Session): Promise<void> {
 
     conversation.push({ role: "user", content: input });
 
+    const provider = resolveProvider(session);
     const reply = await withThinking(
-      () => openAIProvider.chat(conversation),
+      () => provider.chat(conversation),
       "Thinking"
     );
 
