@@ -10,7 +10,7 @@ import { askRaw } from "../auth/prompts.js";
 import { setActiveUser } from "../tools/memoryTools.js";
 import type { Session } from "../auth/login.js";
 
-const PROMPT_ARROW = chalk.cyan("⟩");
+const PROMPT_ARROW = chalk.red("⟩");
 
 function resolveProvider(session: Session): AIProvider {
   const pref = getFact(session.id, "ai_provider");
@@ -24,9 +24,6 @@ function resolveProvider(session: Session): AIProvider {
   );
 }
 
-function providerLabel(p: AIProvider): string {
-  return p.name === "claude" ? "Claude (sonnet-4-6)" : "OpenAI (gpt-4o-mini)";
-}
 
 function factsBlock(session: Session): string {
   const facts = getAllFacts(session.id);
@@ -64,6 +61,11 @@ function buildSystemPrompt(session: Session): string {
     `    preferences (language, editor, code style, tabs vs spaces),`,
     `    project context (what they're building, tech stack, architecture),`,
     `    personal details (profession, goals, where they work or study).`,
+    `  - Priority profile facts to remember whenever you learn them:`,
+    `      full_name       — the user's real full name`,
+    `      job_title       — their role/position (e.g. "Software Engineer")`,
+    `      company         — their employer or org`,
+    `      phone_number    — their contact number`,
     `  - Don't wait to be asked. If someone mentions they use TypeScript,`,
     `    remember it. If they mention a project name, remember it.`,
     `  - Keys: lowercase_snake_case, values: one concise phrase.`,
@@ -107,6 +109,26 @@ function buildSystemPrompt(session: Session): string {
     `  - Proactively offer Telegram after long tasks (tests, builds, deploys).`,
     `  - When sending code or paths use <code>...</code> formatting.`,
     ``,
+    `Gmail — read and send emails from the user's Gmail:`,
+    `  gmail_connect    — set up Gmail (App Password, no OAuth needed)`,
+    `  gmail_send       — send an email (preview panel + confirm)`,
+    `  gmail_inbox      — list recent inbox emails with UIDs`,
+    `  gmail_search     — search by sender, subject, body text, or unread status`,
+    `  gmail_read       — read a full email by UID (get UIDs from inbox/search)`,
+    `  gmail_disconnect — remove stored Gmail credentials`,
+    ``,
+    `  Gmail guidelines:`,
+    `  - When user asks about emails, call gmail_inbox or gmail_search first.`,
+    `  - Always use gmail_read to get the full content before summarizing a specific email.`,
+    `  - When user says 'connect gmail' or 'try again' → call gmail_connect immediately.`,
+    `  - NEVER ask the user to type their App Password into the chat.`,
+    `  - Before composing any email, check memory for: full_name, job_title, company, phone_number.`,
+    `    If any are missing and the email would need them (signature, intro, sign-off), ask the user`,
+    `    for each missing value, remember them immediately, then compose the email.`,
+    `  - NEVER use placeholder text like [Your Name], [Your Position], [Your Company],`,
+    `    [Your Phone Number], or [Your Email Address]. Always use real values from memory`,
+    `    or ask the user — never leave a bracket placeholder in the final email body.`,
+    ``,
     `Style:`,
     `  - Keep spoken replies short. Panels, diffs, and memory cards speak for themselves.`,
     `  - Stay in character. Never break voice.`,
@@ -123,10 +145,7 @@ export async function runChatLoop(session: Session): Promise<void> {
     { role: "system", content: buildSystemPrompt(session) },
   ];
 
-  const initProvider = resolveProvider(session);
-  console.log(
-    chalk.dim(`\n${providerLabel(initProvider)} · say something, or type "exit" to power down.\n`)
-  );
+  console.log(chalk.dim(`\nJARVIS_zeusModal-1.02  ·  say something, or type "exit" to power down.\n`));
 
   while (true) {
     const input = await askRaw(PROMPT_ARROW + " ");

@@ -24,7 +24,7 @@ function wrap(text: string, width: number): string[] {
 
 async function typeLine(line: string, speedMs: number): Promise<void> {
   for (const ch of line) {
-    process.stdout.write(chalk.cyanBright(ch));
+    process.stdout.write(chalk.blue(ch));
     await sleep(speedMs);
   }
   process.stdout.write("\n");

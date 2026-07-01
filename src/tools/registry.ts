@@ -15,6 +15,14 @@ import {
   telegramDisconnectTool,
 } from "../connectors/telegram.js";
 import {
+  gmailConnectTool,
+  gmailSendTool,
+  gmailInboxTool,
+  gmailSearchTool,
+  gmailReadTool,
+  gmailDisconnectTool,
+} from "../connectors/gmail.js";
+import {
   githubSearchTool,
   githubListReposTool,
   githubGetRepoTool,
@@ -453,6 +461,87 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: [],
     },
   },
+
+  // ── Gmail connector ───────────────────────────────────────────────────────
+  {
+    name: "gmail_connect",
+    description:
+      "Set up or redo Gmail connection. Prompts for Gmail address and App Password, " +
+      "verifies them, then asks whether to remember. Call when user says 'connect gmail', " +
+      "'set up gmail', or 'try again' after a failed connection.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "gmail_send",
+    description:
+      "Send an email from the user's Gmail account. Shows a preview panel and asks to confirm before sending.",
+    parameters: {
+      type: "object",
+      properties: {
+        to: { type: "string", description: "Recipient email address." },
+        subject: { type: "string", description: "Email subject line." },
+        body: { type: "string", description: "Plain text email body." },
+      },
+      required: ["to", "subject", "body"],
+    },
+  },
+  {
+    name: "gmail_inbox",
+    description:
+      "List recent emails in the user's Gmail inbox. Shows UID, sender, subject, date, and read status. " +
+      "Use UIDs with gmail_read to open a specific email.",
+    parameters: {
+      type: "object",
+      properties: {
+        limit: { type: "number", description: "Number of recent emails to show. Default 15." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "gmail_search",
+    description:
+      "Search emails in the inbox by sender, subject, body text, or read status. " +
+      "Provide at least one filter. Returns UIDs you can pass to gmail_read.",
+    parameters: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "Filter by sender name or email address." },
+        subject: { type: "string", description: "Filter by subject keyword." },
+        text: { type: "string", description: "Search inside email body." },
+        unread: { type: "string", description: "Pass 'true' to show only unread emails." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "gmail_read",
+    description:
+      "Read the full content of a specific email by its UID. " +
+      "Get UIDs from gmail_inbox or gmail_search.",
+    parameters: {
+      type: "object",
+      properties: {
+        uid: { type: "number", description: "The email UID from gmail_inbox or gmail_search." },
+      },
+      required: ["uid"],
+    },
+  },
+  {
+    name: "gmail_disconnect",
+    description:
+      "Remove stored Gmail credentials for the current user. " +
+      "Call when the user wants to switch accounts or revoke access.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
 ];
 
 export async function runTool(
@@ -551,6 +640,23 @@ export async function runTool(
       return telegramSendFileTool(args.path as string, args.caption as string | undefined);
     case "telegram_disconnect":
       return telegramDisconnectTool();
+    case "gmail_connect":
+      return gmailConnectTool();
+    case "gmail_send":
+      return gmailSendTool(args.to as string, args.subject as string, args.body as string);
+    case "gmail_inbox":
+      return gmailInboxTool(args.limit ? Number(args.limit) : undefined);
+    case "gmail_search":
+      return gmailSearchTool(
+        args.from as string | undefined,
+        args.subject as string | undefined,
+        args.text as string | undefined,
+        args.unread === "true" || args.unread === true
+      );
+    case "gmail_read":
+      return gmailReadTool(Number(args.uid));
+    case "gmail_disconnect":
+      return gmailDisconnectTool();
     default:
       return { ok: false, output: `Unknown tool: ${name}` };
   }
