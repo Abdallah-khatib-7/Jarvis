@@ -125,10 +125,15 @@ export async function editFileTool(
   let content: string;
 
   try {
-    content = await readFile(full, "utf-8");
+    const raw = await readFile(full, "utf-8");
+    content = raw.replace(/\r\n/g, "\n");
   } catch {
     return { ok: false, output: `Cannot read "${path}". Check the path is correct.` };
   }
+
+  // normalize incoming strings from the AI too — JSON transport may drop \r
+  oldString = oldString.replace(/\r\n/g, "\n");
+  newString = newString.replace(/\r\n/g, "\n");
 
   const count = content.split(oldString).length - 1;
 

@@ -9,7 +9,8 @@ export interface ToolResult {
 export async function readFileTool(path: string): Promise<ToolResult> {
   try {
     const full = resolve(path);
-    const content = await readFile(full, "utf-8");
+    const raw = await readFile(full, "utf-8");
+    const content = raw.replace(/\r\n/g, "\n");
     const numbered = content
       .split("\n")
       .map((line, i) => `${i + 1}: ${line}`)

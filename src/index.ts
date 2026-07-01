@@ -1,4 +1,3 @@
-//index.ts
 import './database/db.js'; // Database connection
 import { showBoot } from './boot.js'; // Boot sequence
 import { authenticate } from './auth/login.js'; // User authentication
