@@ -65,7 +65,8 @@ A living map of what's built and what's left. We tick boxes as we go.
 - [ ] Easter eggs
 
 ## Phase 7 — Connectors
-- [ ] GitHub (`@octokit/rest`)
+- [x] GitHub (`@octokit/rest`) — 6 tools: search, list_repos, get_pr, get_issue,
+      create_issue (confirm), comment (confirm). Requires GITHUB_TOKEN in .env.
 - [ ] Telegram
 - [ ] Gmail (OAuth2)
 

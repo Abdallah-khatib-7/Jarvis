@@ -11,6 +11,10 @@ export function setActiveUser(userId: number): void {
   _userId = userId;
 }
 
+export function getActiveUserId(): number | null {
+  return _userId;
+}
+
 // ── panel UI ─────────────────────────────────────────────────────────────────
 
 function termWidth(): number {

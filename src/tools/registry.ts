@@ -8,6 +8,17 @@ import {
 import { executeCommandTool } from "./shellTools.js";
 import { editFileTool, createFileTool, deleteFileTool } from "./editTools.js";
 import { rememberTool, forgetTool, recallTool } from "./memoryTools.js";
+import {
+  githubSearchTool,
+  githubListReposTool,
+  githubGetRepoTool,
+  githubGetFileTool,
+  githubGetPrTool,
+  githubGetIssueTool,
+  githubCreateIssueTool,
+  githubCommentTool,
+  githubDisconnectTool,
+} from "../connectors/github.js";
 
 export interface ToolDefinition {
   name: string;
@@ -191,6 +202,131 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: [],
     },
   },
+
+  // ── GitHub connector (requires GITHUB_TOKEN in .env) ─────────────────────
+  {
+    name: "github_search",
+    description:
+      "Search GitHub issues and pull requests using GitHub search syntax. " +
+      "Examples: 'is:pr is:open author:@me' · 'is:issue is:open assignee:@me' · 'is:issue repo:owner/repo bug'. " +
+      "Use this first when you don't know the exact repo or number.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "GitHub search query string." },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "github_list_repos",
+    description: "List the authenticated user's GitHub repositories, sorted by last updated.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "github_get_repo",
+    description:
+      "Get overview info for a GitHub repository: description, language, stars, forks, topics, default branch. " +
+      "Use this when the user asks about a project in general.",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner (username or org)." },
+        repo: { type: "string", description: "Repository name." },
+      },
+      required: ["owner", "repo"],
+    },
+  },
+  {
+    name: "github_get_file",
+    description:
+      "Read the contents of any file in a GitHub repository (README, source files, configs, etc.). " +
+      "Returns the decoded text content. Also works as a directory listing if path points to a folder. " +
+      "Use this whenever the user asks about a file in a remote repo — README.md, package.json, etc.",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner." },
+        repo: { type: "string", description: "Repository name." },
+        path: { type: "string", description: "File path within the repo, e.g. README.md or src/index.ts." },
+        ref: { type: "string", description: "Branch, tag, or commit SHA. Defaults to the repo's default branch." },
+      },
+      required: ["owner", "repo", "path"],
+    },
+  },
+  {
+    name: "github_get_pr",
+    description:
+      "Get full details for a GitHub pull request: title, description, changed files, and review status.",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner (username or org)." },
+        repo: { type: "string", description: "Repository name." },
+        number: { type: "number", description: "Pull request number." },
+      },
+      required: ["owner", "repo", "number"],
+    },
+  },
+  {
+    name: "github_get_issue",
+    description:
+      "Get full details for a GitHub issue: title, description, labels, assignees, and comments.",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner (username or org)." },
+        repo: { type: "string", description: "Repository name." },
+        number: { type: "number", description: "Issue number." },
+      },
+      required: ["owner", "repo", "number"],
+    },
+  },
+  {
+    name: "github_create_issue",
+    description:
+      "Create a new GitHub issue. Shows a preview panel and asks the user to confirm before posting.",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner." },
+        repo: { type: "string", description: "Repository name." },
+        title: { type: "string", description: "Issue title." },
+        body: { type: "string", description: "Issue body (markdown). Optional." },
+      },
+      required: ["owner", "repo", "title"],
+    },
+  },
+  {
+    name: "github_comment",
+    description:
+      "Post a comment on a GitHub issue or pull request. Shows a preview and asks the user to confirm before posting.",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner." },
+        repo: { type: "string", description: "Repository name." },
+        number: { type: "number", description: "Issue or PR number." },
+        body: { type: "string", description: "Comment text (markdown)." },
+      },
+      required: ["owner", "repo", "number", "body"],
+    },
+  },
+  {
+    name: "github_disconnect",
+    description:
+      "Remove the stored GitHub token for the current user. " +
+      "Call this when the user wants to disconnect GitHub, rotate their token, or fix authentication errors.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
 ];
 
 export async function runTool(
@@ -224,6 +360,39 @@ export async function runTool(
       return forgetTool(args.key as string);
     case "recall":
       return recallTool();
+    case "github_search":
+      return githubSearchTool(args.query as string);
+    case "github_list_repos":
+      return githubListReposTool();
+    case "github_get_repo":
+      return githubGetRepoTool(args.owner as string, args.repo as string);
+    case "github_get_file":
+      return githubGetFileTool(
+        args.owner as string,
+        args.repo as string,
+        args.path as string,
+        args.ref as string | undefined
+      );
+    case "github_get_pr":
+      return githubGetPrTool(args.owner as string, args.repo as string, Number(args.number));
+    case "github_get_issue":
+      return githubGetIssueTool(args.owner as string, args.repo as string, Number(args.number));
+    case "github_create_issue":
+      return githubCreateIssueTool(
+        args.owner as string,
+        args.repo as string,
+        args.title as string,
+        args.body as string | undefined
+      );
+    case "github_comment":
+      return githubCommentTool(
+        args.owner as string,
+        args.repo as string,
+        Number(args.number),
+        args.body as string
+      );
+    case "github_disconnect":
+      return githubDisconnectTool();
     default:
       return { ok: false, output: `Unknown tool: ${name}` };
   }

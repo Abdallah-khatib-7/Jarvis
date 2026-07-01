@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.109.0",
+    "@octokit/rest": "^22.0.1",
     "ansi-escapes": "^7.3.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.11.1",
@@ -38,6 +39,7 @@
     "figlet": "^1.11.0",
     "gradient-string": "^3.0.0",
     "inquirer": "^14.0.2",
+    "keytar": "^7.9.0",
     "openai": "^6.45.0",
     "ora": "^9.4.1"
   }
