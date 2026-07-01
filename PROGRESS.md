@@ -38,8 +38,9 @@ A living map of what's built and what's left. We tick boxes as we go.
 - [x] Real execution capability — `execute_command` tool; safe commands (tsc, npm test, git status, etc.) run automatically; destructive commands require typed confirm-phrase
 
 ## Phase 3 — Destructive file ops
-- [ ] `edit_file` (behind confirm-phrase)
-- [ ] `delete_file` (behind confirm-phrase)
+- [x] `edit_file` — surgical find-replace with diff panel (red/green) + typed confirm-phrase
+- [x] `create_file` — new file with content preview + confirm-phrase; errors if file already exists
+- [x] `delete_file` — file preview + red warning panel + confirm-phrase
 
 ## Phase 4 — Image input
 - [ ] Image as input type in the loop

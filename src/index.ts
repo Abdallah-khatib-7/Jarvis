@@ -1,6 +1,7 @@
-import "./database/db.js";
-import { showBoot } from "./boot.js";
-import { authenticate } from "./auth/login.js";
+//index.ts
+import './database/db.js'; // Database connection
+import { showBoot } from './boot.js'; // Boot sequence
+import { authenticate } from './auth/login.js'; // User authentication
 import { runOnboarding } from "./auth/onboarding.js";
 import { generateWelcome } from "./auth/welcome.js";
 import { pickPersonality } from "./auth/personalityPicker.js";

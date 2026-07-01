@@ -2,6 +2,7 @@ import { exec, type ExecException } from "node:child_process";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import inquirer from "inquirer";
+import { stopThinking } from "../ui/thinking.js";
 import type { ToolResult } from "./fileTools.js";
 
 const EXEC_TIMEOUT_MS = 30_000;
@@ -78,6 +79,7 @@ function isSafe(command: string): boolean {
 async function confirmDestructive(command: string): Promise<boolean> {
   const phrase = `run: ${command}`;
 
+  stopThinking();
   process.stdout.write("\n");
   process.stdout.write(
     chalk.yellow("  ⚠  This command may modify files or your system.\n\n")
