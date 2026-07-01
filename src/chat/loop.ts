@@ -8,6 +8,8 @@ import { getFact, getAllFacts } from "../database/memory.js";
 import { voiceFor } from "../ai/personality.js";
 import { askRaw } from "../auth/prompts.js";
 import { setActiveUser } from "../tools/memoryTools.js";
+import { isFirstRun, runTour } from "../ui/tour.js";
+import { handleSlash } from "../ui/slash.js";
 import type { Session } from "../auth/login.js";
 
 const PROMPT_ARROW = chalk.red("⟩");
@@ -88,6 +90,7 @@ function buildSystemPrompt(session: Session): string {
     `  github_disconnect   — remove stored token (call when user wants to change token or disconnect)`,
     ``,
     `  Token setup: on first use the user is prompted once — token saved to OS credential store.`,
+    `  When user says 'connect github' or asks to set up GitHub → call github_list_repos to trigger auth.`,
     `  Critical: to read a file from a GitHub repo (README, source, config) use github_get_file,`,
     `  NOT read_file — read_file only works on local files.`,
     `  GitHub search syntax hints:`,
@@ -145,7 +148,12 @@ export async function runChatLoop(session: Session): Promise<void> {
     { role: "system", content: buildSystemPrompt(session) },
   ];
 
-  console.log(chalk.dim(`\nJARVIS_zeusModal-1.02  ·  say something, or type "exit" to power down.\n`));
+  console.log(chalk.dim(`\nJARVIS_zeusModal-1.02  ·  say something, or type  /  for commands.\n`));
+
+  // Show first-run tour once
+  if (isFirstRun(session)) {
+    await runTour(session);
+  }
 
   while (true) {
     const input = await askRaw(PROMPT_ARROW + " ");
@@ -154,7 +162,25 @@ export async function runChatLoop(session: Session): Promise<void> {
     /* refresh system message so facts stored mid-session are always current */
     conversation[0] = { role: "system", content: buildSystemPrompt(session) };
 
-    conversation.push({ role: "user", content: input });
+    // ── slash commands ────────────────────────────────────────────────────────
+    if (input.trim() === "/" || input.trim().startsWith("/")) {
+      const result = await handleSlash(input.trim(), session);
+
+      if (result.kind === "handled") continue;
+      if (result.kind === "clear") {
+        conversation.splice(1); // keep system message, wipe history
+        continue;
+      }
+      if (result.kind === "exit") {
+        console.log(chalk.cyan("\nJARVIS powering down. Goodbye.\n"));
+        process.exit(0);
+      }
+
+      // kind === "message" — send result.text to the AI
+      conversation.push({ role: "user", content: result.text });
+    } else {
+      conversation.push({ role: "user", content: input });
+    }
 
     const provider = resolveProvider(session);
     const reply = await withThinking(
