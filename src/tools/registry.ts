@@ -17,6 +17,9 @@ import {
   githubGetIssueTool,
   githubCreateIssueTool,
   githubCommentTool,
+  githubCreatePrTool,
+  githubListRunsTool,
+  githubTriggerWorkflowTool,
   githubDisconnectTool,
 } from "../connectors/github.js";
 
@@ -317,6 +320,66 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: "github_create_pr",
+    description:
+      "Open a new GitHub pull request. Shows a preview panel and asks the user to confirm before posting. " +
+      "head is the source branch, base is the target (usually main or master).",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner." },
+        repo: { type: "string", description: "Repository name." },
+        title: { type: "string", description: "PR title." },
+        head: { type: "string", description: "Source branch (the branch with your changes)." },
+        base: { type: "string", description: "Target branch to merge into, e.g. main." },
+        body: { type: "string", description: "PR description (markdown). Optional." },
+        draft: { type: "string", description: "Pass 'true' to open as a draft PR. Optional." },
+      },
+      required: ["owner", "repo", "title", "head", "base"],
+    },
+  },
+  {
+    name: "github_list_runs",
+    description:
+      "List recent GitHub Actions workflow runs for a repository. " +
+      "Shows run status (success/failure/in_progress), branch, duration, and time. " +
+      "Optionally filter to a specific workflow file.",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner." },
+        repo: { type: "string", description: "Repository name." },
+        workflow: {
+          type: "string",
+          description: "Optional workflow filename to filter by, e.g. 'ci.yml'. Omit to see all workflows.",
+        },
+      },
+      required: ["owner", "repo"],
+    },
+  },
+  {
+    name: "github_trigger_workflow",
+    description:
+      "Trigger a GitHub Actions workflow_dispatch event. " +
+      "The workflow must have 'on: workflow_dispatch' configured. " +
+      "Shows a preview panel and asks the user to confirm before triggering.",
+    parameters: {
+      type: "object",
+      properties: {
+        owner: { type: "string", description: "Repository owner." },
+        repo: { type: "string", description: "Repository name." },
+        workflow: { type: "string", description: "Workflow filename, e.g. 'deploy.yml'." },
+        ref: { type: "string", description: "Branch or tag to run the workflow on, e.g. 'main'." },
+        inputs: {
+          type: "string",
+          description:
+            "Optional JSON string of workflow dispatch inputs, e.g. '{\"environment\":\"staging\"}'.",
+        },
+      },
+      required: ["owner", "repo", "workflow", "ref"],
+    },
+  },
+  {
     name: "github_disconnect",
     description:
       "Remove the stored GitHub token for the current user. " +
@@ -390,6 +453,30 @@ export async function runTool(
         args.repo as string,
         Number(args.number),
         args.body as string
+      );
+    case "github_create_pr":
+      return githubCreatePrTool(
+        args.owner as string,
+        args.repo as string,
+        args.title as string,
+        args.head as string,
+        args.base as string,
+        args.body as string | undefined,
+        args.draft === "true" || args.draft === true
+      );
+    case "github_list_runs":
+      return githubListRunsTool(
+        args.owner as string,
+        args.repo as string,
+        args.workflow as string | undefined
+      );
+    case "github_trigger_workflow":
+      return githubTriggerWorkflowTool(
+        args.owner as string,
+        args.repo as string,
+        args.workflow as string,
+        args.ref as string,
+        args.inputs ? (JSON.parse(args.inputs as string) as Record<string, string>) : undefined
       );
     case "github_disconnect":
       return githubDisconnectTool();

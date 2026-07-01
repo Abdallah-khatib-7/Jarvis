@@ -368,6 +368,139 @@ export async function githubCommentTool(
   }
 }
 
+// ── pull requests ────────────────────────────────────────────────────────────
+
+export async function githubCreatePrTool(
+  owner: string,
+  repo: string,
+  title: string,
+  head: string,
+  base: string,
+  body?: string,
+  draft?: boolean
+): Promise<ToolResult> {
+  stopThinking();
+
+  const color = chalk.blue;
+  panelOpen("◈", "CREATE PULL REQUEST", `${owner}/${repo}`, color);
+  panelLine(`${head}  →  ${base}${draft ? "  (draft)" : ""}`, color);
+  panelLine(`Title: ${title}`, color);
+  if (body) {
+    panelLine("", color);
+    for (const line of body.slice(0, 400).split("\n").slice(0, 8)) {
+      panelLine(line, color);
+    }
+  }
+  panelClose(color);
+
+  const { go } = await inquirer.prompt<{ go: boolean }>([
+    { type: "confirm", name: "go", message: "Open this pull request?", default: false },
+  ]);
+
+  if (!go) return { ok: false, output: "Pull request cancelled." };
+
+  try {
+    const octokit = await getOctokit();
+    const { data } = await octokit.pulls.create({ owner, repo, title, body, head, base, draft });
+    console.log(chalk.blue(`\n  ✓ PR #${data.number} opened: ${data.html_url}\n`));
+    return { ok: true, output: `PR #${data.number} opened: ${data.html_url}` };
+  } catch (err) {
+    return { ok: false, output: errMsg(err) };
+  }
+}
+
+// ── github actions ────────────────────────────────────────────────────────────
+
+const runIcon = (status: string | null, conclusion: string | null): string => {
+  if (status === "in_progress") return "⟳";
+  if (status === "queued") return "◌";
+  if (conclusion === "success") return "✓";
+  if (conclusion === "failure") return "✗";
+  if (conclusion === "cancelled") return "⊘";
+  if (conclusion === "skipped") return "—";
+  return "?";
+};
+
+export async function githubListRunsTool(
+  owner: string,
+  repo: string,
+  workflow?: string
+): Promise<ToolResult> {
+  try {
+    const octokit = await getOctokit();
+
+    const runs = workflow
+      ? (await octokit.actions.listWorkflowRuns({ owner, repo, workflow_id: workflow, per_page: 15 })).data.workflow_runs
+      : (await octokit.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 15 })).data.workflow_runs;
+
+    if (runs.length === 0) {
+      return { ok: true, output: `No workflow runs found in ${owner}/${repo}${workflow ? ` for ${workflow}` : ""}.` };
+    }
+
+    const lines = [
+      `Workflow runs for ${owner}/${repo}${workflow ? ` · ${workflow}` : ""} (latest ${runs.length}):`,
+    ];
+    for (const run of runs) {
+      const icon = runIcon(run.status ?? null, run.conclusion ?? null);
+      const secs =
+        run.status === "completed" && run.updated_at && run.created_at
+          ? Math.round(
+              (new Date(run.updated_at).getTime() - new Date(run.created_at).getTime()) / 1000
+            )
+          : null;
+      const dur = secs !== null ? ` · ${secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m${secs % 60}s`}` : "";
+      lines.push(
+        `[${icon}] #${run.run_number} — ${run.name} · ${run.head_branch} · ${run.conclusion ?? run.status}${dur} · ${fmtDate(run.created_at)}`
+      );
+    }
+
+    return { ok: true, output: lines.join("\n") };
+  } catch (err) {
+    return { ok: false, output: errMsg(err) };
+  }
+}
+
+export async function githubTriggerWorkflowTool(
+  owner: string,
+  repo: string,
+  workflow: string,
+  ref: string,
+  inputs?: Record<string, string>
+): Promise<ToolResult> {
+  stopThinking();
+
+  const color = chalk.yellow;
+  panelOpen("◈", "TRIGGER WORKFLOW", `${owner}/${repo}`, color);
+  panelLine(`Workflow: ${workflow}`, color);
+  panelLine(`Branch:   ${ref}`, color);
+  if (inputs && Object.keys(inputs).length > 0) {
+    panelLine("", color);
+    panelLine("Inputs:", color);
+    for (const [k, v] of Object.entries(inputs)) {
+      panelLine(`  ${k}: ${v}`, color);
+    }
+  }
+  panelClose(color);
+
+  const { go } = await inquirer.prompt<{ go: boolean }>([
+    { type: "confirm", name: "go", message: "Trigger this workflow?", default: false },
+  ]);
+
+  if (!go) return { ok: false, output: "Workflow trigger cancelled." };
+
+  try {
+    const octokit = await getOctokit();
+    await octokit.actions.createWorkflowDispatch({ owner, repo, workflow_id: workflow, ref, inputs });
+    console.log(chalk.yellow(`\n  ✓ Triggered "${workflow}" on ${ref}.\n`));
+    return {
+      ok: true,
+      output: `Workflow "${workflow}" triggered on "${ref}". Use github_list_runs to check status.`,
+    };
+  } catch (err) {
+    return { ok: false, output: errMsg(err) };
+  }
+}
+
 // ── disconnect ────────────────────────────────────────────────────────────────
 
 export async function githubDisconnectTool(): Promise<ToolResult> {
