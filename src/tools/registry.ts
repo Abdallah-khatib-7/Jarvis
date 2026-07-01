@@ -9,6 +9,12 @@ import { executeCommandTool } from "./shellTools.js";
 import { editFileTool, createFileTool, deleteFileTool } from "./editTools.js";
 import { rememberTool, forgetTool, recallTool } from "./memoryTools.js";
 import {
+  telegramConnectTool,
+  telegramSendTool,
+  telegramSendFileTool,
+  telegramDisconnectTool,
+} from "../connectors/telegram.js";
+import {
   githubSearchTool,
   githubListReposTool,
   githubGetRepoTool,
@@ -390,6 +396,63 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: [],
     },
   },
+
+  // ── Telegram connector ────────────────────────────────────────────────────
+  {
+    name: "telegram_connect",
+    description:
+      "Start or redo the Telegram connection setup. " +
+      "Call this when the user says 'connect telegram', 'set up telegram', 'try again' after a failed connection, " +
+      "or wants to switch to a different bot. Clears any broken state before prompting.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "telegram_send",
+    description:
+      "Send a text message to the user's Telegram account via their personal bot. " +
+      "Use this proactively to notify the user when long tasks complete, tests pass or fail, " +
+      "or when something important happens that they'd want to know on their phone. " +
+      "Supports basic HTML formatting: <b>bold</b>, <i>italic</i>, <code>code</code>.",
+    parameters: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          description: "The message text to send. HTML formatting supported.",
+        },
+      },
+      required: ["message"],
+    },
+  },
+  {
+    name: "telegram_send_file",
+    description:
+      "Send a local file (log, report, image, output) to the user's Telegram account. " +
+      "Use this to deliver build outputs, error logs, or generated files straight to their phone.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Local file path to send." },
+        caption: { type: "string", description: "Optional caption shown below the file." },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "telegram_disconnect",
+    description:
+      "Disconnect Telegram — clears the stored token and chat ID for the current user. " +
+      "Call this when the user wants to change their bot or revoke access.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
 ];
 
 export async function runTool(
@@ -480,6 +543,14 @@ export async function runTool(
       );
     case "github_disconnect":
       return githubDisconnectTool();
+    case "telegram_connect":
+      return telegramConnectTool();
+    case "telegram_send":
+      return telegramSendTool(args.message as string);
+    case "telegram_send_file":
+      return telegramSendFileTool(args.path as string, args.caption as string | undefined);
+    case "telegram_disconnect":
+      return telegramDisconnectTool();
     default:
       return { ok: false, output: `Unknown tool: ${name}` };
   }
