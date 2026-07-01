@@ -4,6 +4,8 @@ import { authenticate } from "./auth/login.js";
 import { runOnboarding } from "./auth/onboarding.js";
 import { generateWelcome } from "./auth/welcome.js";
 import { pickPersonality } from "./auth/personalityPicker.js";
+import { revealSpeech } from "./ui/reveal.js";
+
 
 await showBoot();
 
@@ -19,6 +21,6 @@ if (session.isNew) {
 }
 
 const welcome = await generateWelcome(session);
-console.log("\n" + welcome + "\n");
+await revealSpeech(welcome);
 
 await pickPersonality(session);
