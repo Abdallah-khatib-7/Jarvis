@@ -76,6 +76,7 @@ function showHelp(): void {
     row("/status", "What's currently connected and which AI is active"),
     "",
     "  " + chalk.white("── QUICK ACTIONS ───────────────────────────────────────────────────"),
+    row("/reminders", "List & manage active reminders"),
     row("/search", "Search the web (prompts for query)"),
     row("/news", "Search latest news (prompts for query)"),
     row("/inbox", "Open Gmail inbox (last 15 emails)"),
@@ -329,6 +330,10 @@ async function showMenu(): Promise<string> {
 
         new S(chalk.dim(" ─── QUICK ACTIONS ───────────────────────────────────── ")),
         {
+          name: chalk.yellow("/reminders") + chalk.dim("      List & manage active reminders"),
+          value: "/reminders",
+        },
+        {
           name: chalk.yellow("/search") + chalk.dim("         Search the web"),
           value: "/search",
         },
@@ -414,6 +419,9 @@ export async function handleSlash(
 
     case "/disconnect":
       return disconnectService();
+
+    case "/reminders":
+      return { kind: "message", text: "list my active reminders" };
 
     case "/search": {
       const { q } = await inquirer.prompt<{ q: string }>([

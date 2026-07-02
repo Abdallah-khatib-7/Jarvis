@@ -9,6 +9,7 @@ import { executeCommandTool } from "./shellTools.js";
 import { editFileTool, createFileTool, deleteFileTool } from "./editTools.js";
 import { rememberTool, forgetTool, recallTool } from "./memoryTools.js";
 import { webSearchTool, webNewsTool } from "./webSearch.js";
+import { setReminderTool, listRemindersTool, cancelReminderTool } from "./reminders.js";
 import {
   telegramConnectTool,
   telegramSendTool,
@@ -587,6 +588,52 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ["query"],
     },
   },
+
+  // ── Reminders ─────────────────────────────────────────────────────────────
+  {
+    name: "remind_me",
+    description:
+      "Schedule a reminder that fires after a delay. " +
+      "When it fires, it rings the terminal bell, shows an alert panel, and sends a Telegram message if connected. " +
+      "Parse natural language: 'in 30 minutes' → 30, 'in 2 hours' → 120, 'in 1.5 hours' → 90.",
+    parameters: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          description: "What to remind the user about. Keep it concise.",
+        },
+        delay_minutes: {
+          type: "number",
+          description: "How many minutes from now to fire the reminder (min 1, max 1440).",
+        },
+      },
+      required: ["message", "delay_minutes"],
+    },
+  },
+  {
+    name: "list_reminders",
+    description: "List all active (pending) reminders with their IDs and time remaining.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "cancel_reminder",
+    description: "Cancel an active reminder by its ID. Get IDs from list_reminders.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: {
+          type: "number",
+          description: "The reminder ID to cancel.",
+        },
+      },
+      required: ["id"],
+    },
+  },
 ];
 
 export async function runTool(
@@ -706,6 +753,12 @@ export async function runTool(
       return webSearchTool(args.query as string, args.num ? Number(args.num) : undefined);
     case "web_news":
       return webNewsTool(args.query as string, args.num ? Number(args.num) : undefined);
+    case "remind_me":
+      return setReminderTool(args.message as string, Number(args.delay_minutes));
+    case "list_reminders":
+      return listRemindersTool();
+    case "cancel_reminder":
+      return cancelReminderTool(Number(args.id));
     default:
       return { ok: false, output: `Unknown tool: ${name}` };
   }

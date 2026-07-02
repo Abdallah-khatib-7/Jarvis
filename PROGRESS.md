@@ -1,97 +1,90 @@
-# JARVIS — Progress Tracker
+# JARVIS — Build Progress
 
-A living map of what's built and what's left. We tick boxes as we go.
+## ✅ Completed
 
----
+### Core (Phases 1–3)
+- Multi-user terminal login with bcrypt passwords stored in SQLite
+- Animated JARVIS boot screen (figlet + gradient)
+- Box-drawing panel UI system (consistent across all features)
+- Long-term memory: key/value facts per user, persisted in SQLite
+- Personality system: 4 voice modes (cinematic, warm, playful, professional)
+- Animated typewriter speech output with ANSI-safe rendering
 
-## Setup
-- [x] Base folder created
-- [x] `package.json`
-- [x] `.gitignore`
-- [x] Git repo + first commit
-- [x] GitHub remote connected + pushed
-- [x] `PROGRESS.md` (this file) pushed
-- [x] TypeScript installed + configured
-- [x] Folder structure (`src/`)
+### Agentic Loop (Phase 5)
+- OpenAI function-calling loop (up to 10 tool rounds per turn)
+- Claude agentic loop (tool_use / tool_result blocks, Anthropic format)
+- Tools: `read_file`, `list_directory`, `search_files`, `grep_files`,
+  `execute_command`, `edit_file`, `create_file`, `delete_file`
+- Code-block-aware file reveal
 
----
+### Multi-Provider AI (Phase 8)
+- Claude adapter (sonnet-4-6) with full tool-use support
+- OpenAI adapter (gpt-4o-mini) with function-calling
+- Auto-selection: Claude first if `ANTHROPIC_API_KEY` present, OpenAI fallback
+- Per-user provider preference stored in memory (`ai_provider` fact)
+- `/provider` slash command to switch live
 
-## Phase 1 — Terminal shell + identity
-- [x] Animated boot sequence (glitch-in title, boot-status lines, typewriter tagline)
-- [x] New-user vs returning-user flow (with back navigation + exit anywhere)
-- [x] Account creation / login (local SQLite, bcrypt-hashed passwords)
-- [x] Onboarding Q&A that seeds initial memory (age-aware education branching,
-      age-gate with self-destruct sequence for invalid input, polite farewell
-      + account deletion for under-16)
+### GitHub Connector (Phase 7)
+- Per-user token stored in OS credential store (keytar)
+- 12 tools: `github_search`, `github_list_repos`, `github_get_repo`,
+  `github_get_file`, `github_get_pr`, `github_get_issue`,
+  `github_create_issue`, `github_comment`, `github_create_pr`,
+  `github_list_runs`, `github_trigger_workflow`, `github_disconnect`
+- Write operations show preview panel + confirm before executing
+- CI run icons: ✓ / ✗ / ⟳ / ◌ / ⊘
 
-## Phase 2 — Core agentic loop
-- [x] AI provider interface + OpenAI adapter (`src/ai/types.ts`, `src/ai/openai.ts`)
-- [x] Function-calling wired up — real multi-turn tool use loop, `MAX_TURNS` cap,
-      graceful no-tools fallback when the cap is hit
-- [x] `read_file` tool
-- [x] `list_directory` tool
-- [x] `search_files` tool (recursive project search, skips node_modules/.git/dist)
-- [x] Live status spinner UI (`withThinking`, rotating phrases)
-- [x] Ongoing chat loop (`src/chat/loop.ts`) — persistent conversation, not one-shot
-- [x] `read_file` line-numbering — 1-indexed prefixes in place
-- [x] `grep_files` tool — content search with regex, file:line results
-- [x] Real execution capability — `execute_command` tool; safe commands (tsc, npm test, git status, etc.) run automatically; destructive commands require typed confirm-phrase
+### Telegram Connector (Phase 7)
+- Per-user token + chat ID stored in keytar (or session-only)
+- Validated via `getMe` on setup; chat ID from `@userinfobot`
+- Tools: `telegram_connect`, `telegram_send`, `telegram_send_file`, `telegram_disconnect`
 
-## Phase 3 — Destructive file ops
-- [x] `edit_file` — surgical find-replace with diff panel (red/green) + typed confirm-phrase
-- [x] `create_file` — new file with content preview + confirm-phrase; errors if file already exists
-- [x] `delete_file` — file preview + red warning panel + confirm-phrase
+### Gmail Connector (Phase 7)
+- Per-user App Password stored in keytar (or session-only)
+- Verified via IMAP on setup
+- Tools: `gmail_connect`, `gmail_send`, `gmail_inbox`, `gmail_search`,
+  `gmail_read`, `gmail_disconnect`
+- Send shows full email preview panel + confirm before sending
+- Pre-send: asks for `full_name`, `job_title`, `company` if missing from memory
 
-## Phase 4 — Image input
-- [ ] Image as input type in the loop
+### Web Search
+- `web_search` — Google results via Serper (answer box, knowledge graph, organic)
+- `web_news` — Google News via Serper
+- System prompt enforces mandatory search for prices, versions, availability
+- `/search` and `/news` slash commands with inline query prompt
 
-## Phase 5 — Memory system
-- [x] Persistent structured facts (`src/database/memory.ts`, key/value per user)
-- [x] Fed into context each session (onboarding facts + personality inform every prompt)
-- [x] `remember` tool — JARVIS stores facts proactively; magenta memory panel on every store
-- [x] `forget` tool — remove a fact by key
-- [x] `recall` tool — mid-conversation fact lookup (no UI, raw data to AI)
-- [x] System message rebuilt before every turn so mid-session facts are immediately live
-- [x] System prompt instructs proactive memory: preferences, project context, personal details
+### Reminders
+- `remind_me(message, delay_minutes)` — schedule a reminder
+- `list_reminders` — see pending reminders with time remaining
+- `cancel_reminder(id)` — cancel by ID
+- Fires: terminal bell + yellow alert panel + Telegram message (if connected)
+- Natural language parsed by AI: "in 30 minutes", "in 2 hours"
+- `/reminders` slash command
 
-## Phase 6 — Personality + discoverability
-- [x] System prompt voice (4 selectable personalities: cinematic, warm, playful,
-      professional — `src/ai/personality.ts`, chosen post-welcome, used app-wide)
-- [x] Typewriter speech reveal (`src/ui/reveal.ts`) — code blocks print instantly
-      and untouched, prose types out
-- [ ] `jarvis help` (categorized)
-- [ ] First-run tour
-- [ ] Contextual hints
-- [ ] Easter eggs
-
-## Phase 7 — Connectors
-- [x] GitHub (`@octokit/rest`) — 6 tools: search, list_repos, get_pr, get_issue,
-      create_issue (confirm), comment (confirm). Requires GITHUB_TOKEN in .env.
-- [ ] Telegram
-- [ ] Gmail (OAuth2)
-
-## Phase 8 — Multi-provider support
-- [x] Claude adapter (`src/ai/claude.ts`) — full agentic loop, tool calling,
-      message format conversion (system extraction, tool_result bundling)
-- [x] Auto provider selection — Claude if ANTHROPIC_API_KEY set, OpenAI fallback;
-      user preference stored as `ai_provider` memory fact, re-resolved every turn
-- [x] Provider label shown at session start ("Claude (sonnet-4-6) · say something...")
-- [x] Mid-session switching — `remember("ai_provider", "claude|openai")` takes effect
-      on the next message without restarting
-- [ ] Shared-key daily token cap (75k/day)
-
-## Phase 9 — Voice (stretch)
-- [ ] Whisper STT
-- [ ] OpenAI TTS
+### UX & Design (Phase 6)
+- First-run animated tour (5 sections, shown once on first login)
+- Slash command menu (`/` key) with arrow-key navigation
+- 17 commands: `/help`, `/memory`, `/clear`, `/status`, `/provider`,
+  `/personality`, `/connect`, `/disconnect`, `/inbox`, `/repos`, `/prs`,
+  `/issues`, `/reminders`, `/search`, `/news`, `/tour`, `/exit`
+- Full markdown rendering: bold, inline code, links, H1/H2/H3,
+  bullet lists (◆), numbered lists, fenced code blocks with styled box
+- ANSI-safe typewriter (skips escape sequences, never splits color codes)
+- User prompt arrow: red — JARVIS reply: blue
+- Startup label: `JARVIS_zeusModal-1.02`
 
 ---
 
-## Notes / new ideas
-- Admin/dev DB tools: list users, delete a user, dump a user's memory.
-  Likely a hidden `jarvis admin` command or dev-only script. Useful for
-  testing and cleanup. (Came up while removing test accounts.)
-- Execution tools (tsc, shell) are the next real milestone — needed for
-  JARVIS to answer questions like "do I have errors in this file" instead
-  of just reading and guessing. Read-only execution = no confirm-phrase
-  needed. Anything that modifies files/system = same confirm-phrase gate
-  as edit_file/delete_file.
+## 📋 Remaining
+
+### Phase 4 — Image Input
+- Attach a screenshot or image path; JARVIS analyzes it
+- Requires Vision API: Claude (claude-3-5-sonnet) or OpenAI (gpt-4o)
+- Needs base64 encoding + multimodal message format for both providers
+
+### Phase 8 Remainder — Daily Token Cap
+- 75 000 token/day limit per user on shared API keys
+- Track usage in SQLite; block or warn when limit approached
+
+### Phase 9 — Voice (Stretch Goal)
+- STT: Whisper API — speak to JARVIS instead of typing
+- TTS: OpenAI TTS or ElevenLabs — JARVIS speaks replies aloud
