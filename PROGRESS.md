@@ -2,89 +2,62 @@
 
 ## ✅ Completed
 
-### Core (Phases 1–3)
+### Core
 - Multi-user terminal login with bcrypt passwords stored in SQLite
-- Animated JARVIS boot screen (figlet + gradient)
-- Box-drawing panel UI system (consistent across all features)
+- Animated boot sequence: procedural arc-reactor power-up → figlet glitch-title reveal → system status checks → typewriter tagline
+- Shared HUD toolkit (`src/ui/hud.ts`) — boxed panels, brand gradient, ANSI-safe centering — used consistently across boot, login, onboarding, and chat
 - Long-term memory: key/value facts per user, persisted in SQLite
-- Personality system: 4 voice modes (cinematic, warm, playful, professional)
-- Animated typewriter speech output with ANSI-safe rendering
+- Personality system: 4 voice modes (cinematic, warm, playful, professional), picked at signup with a themed "CALIBRATE VOICE" panel
+- Animated typewriter speech output with full markdown rendering (bold, inline code, links, headers, bullet/numbered lists, fenced code blocks), ANSI-safe
 
-### Agentic Loop (Phase 5)
-- OpenAI function-calling loop (up to 10 tool rounds per turn)
-- Claude agentic loop (tool_use / tool_result blocks, Anthropic format)
-- Tools: `read_file`, `list_directory`, `search_files`, `grep_files`,
-  `execute_command`, `edit_file`, `create_file`, `delete_file`
-- Code-block-aware file reveal
+### Onboarding & Login
+- HUD-styled login screen ("JARVIS ACCESS TERMINAL" header, boxed ACCESS GRANTED / ACCESS DENIED / NEW PROFILE panels)
+- 7-question onboarding dossier with step badges (`◈ step N of 7`), age-aware education branching, playful fail-safes (self-destruct sequence for fake ages, respectful farewell for under-16)
+- AI-generated in-character welcome greeting on first login
 
-### Multi-Provider AI (Phase 8)
-- Claude adapter (sonnet-4-6) with full tool-use support
-- OpenAI adapter (gpt-4o-mini) with function-calling
-- Auto-selection: Claude first if `ANTHROPIC_API_KEY` present, OpenAI fallback
-- Per-user provider preference stored in memory (`ai_provider` fact)
-- `/provider` slash command to switch live
+### Agentic Loop
+- OpenAI function-calling loop and Claude tool_use/tool_result loop (up to 10 tool rounds per turn)
+- Auto-provider selection: Claude first if `ANTHROPIC_API_KEY` present, OpenAI fallback; `/provider` to switch live
+- 38 tools across file ops, memory, GitHub, Telegram, Gmail, web search, and reminders (see `src/tools/registry.ts`)
 
-### GitHub Connector (Phase 7)
-- Per-user token stored in OS credential store (keytar)
-- 12 tools: `github_search`, `github_list_repos`, `github_get_repo`,
-  `github_get_file`, `github_get_pr`, `github_get_issue`,
-  `github_create_issue`, `github_comment`, `github_create_pr`,
-  `github_list_runs`, `github_trigger_workflow`, `github_disconnect`
-- Write operations show preview panel + confirm before executing
-- CI run icons: ✓ / ✗ / ⟳ / ◌ / ⊘
+### Connectors
+- **GitHub** — 12 tools: search, repos, files, PRs, issues, comments, create issue/PR, Actions runs, workflow dispatch. Token in OS credential store. Writes show a preview panel + confirm.
+- **Telegram** — connect, send text/HTML, send file, disconnect. Token + chat ID in keytar.
+- **Gmail** — connect (App Password via IMAP), send, inbox, search, read, disconnect. Composed emails render real markdown bold/italic as HTML (not literal `**asterisks**`) in both the terminal preview and the sent email.
+- **Web search** — Google results + Google News via Serper, mandatory before answering anything time-sensitive.
 
-### Telegram Connector (Phase 7)
-- Per-user token + chat ID stored in keytar (or session-only)
-- Validated via `getMe` on setup; chat ID from `@userinfobot`
-- Tools: `telegram_connect`, `telegram_send`, `telegram_send_file`, `telegram_disconnect`
+### Voice Mode (`/voice`)
+- Fully free, fully offline — no paid APIs, no accounts
+- Push-to-talk: records mic via a bundled ffmpeg binary, transcribes locally with Whisper (`Xenova/whisper-base.en`, ONNX, ~150MB one-time download, cached in `.voice-cache/`)
+- Transcription runs in an isolated child process with a 90s timeout, so a native-runtime hang can never freeze the app
+- Replies spoken back with a free Microsoft Edge neural voice (`en-GB-RyanNeural`), played via Windows' built-in SoundPlayer
 
-### Gmail Connector (Phase 7)
-- Per-user App Password stored in keytar (or session-only)
-- Verified via IMAP on setup
-- Tools: `gmail_connect`, `gmail_send`, `gmail_inbox`, `gmail_search`,
-  `gmail_read`, `gmail_disconnect`
-- Send shows full email preview panel + confirm before sending
-- Pre-send: asks for `full_name`, `job_title`, `company` if missing from memory
+### Screen Awareness (`/screen`)
+- Captures the full desktop (multi-monitor aware) via Windows' built-in `System.Drawing`, no extra dependencies
+- Feeds the screenshot through the same vision pipeline as `/attach` so the AI actually looks at it
 
-### Web Search
-- `web_search` — Google results via Serper (answer box, knowledge graph, organic)
-- `web_news` — Google News via Serper
-- System prompt enforces mandatory search for prices, versions, availability
-- `/search` and `/news` slash commands with inline query prompt
+### File Attachments (`/attach`)
+- Native Windows file picker for images, PDFs, Word docs, and code/text files
+- Images go multimodal to the vision API; PDFs/DOCX get text-extracted; code/text sent as context
 
-### Reminders
-- `remind_me(message, delay_minutes)` — schedule a reminder
-- `list_reminders` — see pending reminders with time remaining
-- `cancel_reminder(id)` — cancel by ID
-- Fires: terminal bell + yellow alert panel + Telegram message (if connected)
-- Natural language parsed by AI: "in 30 minutes", "in 2 hours"
-- `/reminders` slash command
+### Proactive Systems
+- **CEO briefing** — once-per-day-on-launch digest pulling from Gmail (unread), GitHub (Octokit), reminders, and system info; `/brief` to re-run on demand
+- **System watchdog** — silent background monitor for CPU/RAM/disk thresholds with cooldown-gated alerts
+- **Reminders** — natural-language delay parsing, fires via terminal alert + Telegram (if connected), persisted across restarts
 
-### UX & Design (Phase 6)
-- First-run animated tour (5 sections, shown once on first login)
-- Slash command menu (`/` key) with arrow-key navigation
-- 17 commands: `/help`, `/memory`, `/clear`, `/status`, `/provider`,
-  `/personality`, `/connect`, `/disconnect`, `/inbox`, `/repos`, `/prs`,
-  `/issues`, `/reminders`, `/search`, `/news`, `/tour`, `/exit`
-- Full markdown rendering: bold, inline code, links, H1/H2/H3,
-  bullet lists (◆), numbered lists, fenced code blocks with styled box
-- ANSI-safe typewriter (skips escape sequences, never splits color codes)
-- User prompt arrow: red — JARVIS reply: blue
-- Startup label: `JARVIS_zeusModal-1.02`
+### Usage & Limits
+- Daily token cap: 150,000 tokens/user/day with a 90% usage warning, Claude-Code-style limit UI; admin account (`test`) exempt
+
+### UX & Design
+- Slash command menu (`/` key, arrow-key navigation) — 32 commands total, including easter eggs
+- Visual easter eggs: `/hack`, `/tony`, `/coffee`, `/tea`, `/matrix`, `/selfdestruct`
+- First-run animated tour (6 sections, shown once)
 
 ---
 
-## 📋 Remaining
-
-### Phase 4 — Image Input
-- Attach a screenshot or image path; JARVIS analyzes it
-- Requires Vision API: Claude (claude-3-5-sonnet) or OpenAI (gpt-4o)
-- Needs base64 encoding + multimodal message format for both providers
-
-### Phase 8 Remainder — Daily Token Cap
-- 75 000 token/day limit per user on shared API keys
-- Track usage in SQLite; block or warn when limit approached
-
-### Phase 9 — Voice (Stretch Goal)
-- STT: Whisper API — speak to JARVIS instead of typing
-- TTS: OpenAI TTS or ElevenLabs — JARVIS speaks replies aloud
+## 💡 Ideas / Not Started
+- Calendar integration (conflict-aware reminders, "what's on my calendar")
+- Inbox triage autopilot — flag what needs a reply, draft responses for approval
+- Cross-tool event triggers ("new PR review request → Telegram ping")
+- `/stats` — personal usage dashboard (token trends, most-used commands)
+- Wake-word always-listening voice mode (current `/voice` is push-to-talk by design — fully free, no background mic)
