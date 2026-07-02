@@ -16,6 +16,7 @@ import {
 import { getActiveUserId } from "../tools/memoryTools.js";
 import { PERSONALITIES } from "../ai/personality.js";
 import { runTour } from "./tour.js";
+import { runBriefing } from "./briefing.js";
 import type { Session } from "../auth/login.js";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -678,6 +679,17 @@ export async function handleSlash(
 
     case "/matrix":
       await matrixBulletDodge();
+      return { kind: "handled" };
+
+    // /brief → re-run morning briefing on demand
+    case "/brief":
+    case "/briefing":
+      await runBriefing(session);
+      return { kind: "handled" };
+
+    // /connectors is an alias for /status
+    case "/connectors":
+      await showStatus(session);
       return { kind: "handled" };
 
     default:

@@ -82,6 +82,29 @@ function fmtDate(d: Date | string | null | undefined): string {
   return date.toLocaleDateString();
 }
 
+// ── markdown → styled output ─────────────────────────────────────────────────
+
+function mdToTerminal(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, (_, s) => chalk.bold(s))
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, (_, s) => chalk.italic(s));
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function mdToHtml(body: string): string {
+  const paragraphs = body.split("\n").map((line) => {
+    if (!line.trim()) return "";
+    let html = escapeHtml(line);
+    html = html.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<i>$1</i>");
+    return html;
+  });
+  return `<div style="font-family:Arial,sans-serif;font-size:14px;white-space:normal;">${paragraphs.join("<br>")}</div>`;
+}
+
 function errMsg(err: unknown): string {
   if (err instanceof Error) {
     if (err.message.includes("AUTHENTICATIONFAILED") || err.message.includes("Invalid credentials"))
@@ -163,10 +186,22 @@ export async function gmailConnectTool(): Promise<ToolResult> {
   const userId = getActiveUserId();
   if (userId === null) return { ok: false, output: "No active user session." };
 
-  stopThinking();
-  _sessionEmail = null;
-  _sessionPassword = null;
+  // Already connected this session
+  if (_sessionEmail && _sessionPassword) {
+    return { ok: true, output: "Gmail is already connected and ready to use." };
+  }
 
+  // Credentials saved in OS store — load without re-prompting
+  const stored = await keytar.getPassword(SERVICE, keytarAcct(userId));
+  if (stored) {
+    const creds = JSON.parse(stored) as { email: string; password: string };
+    _sessionEmail = creds.email;
+    _sessionPassword = creds.password;
+    return { ok: true, output: `Gmail already connected (${creds.email}).` };
+  }
+
+  // Nothing stored — run full setup
+  stopThinking();
   try {
     const creds = await runSetup(userId);
     _sessionEmail = creds.email;
@@ -192,12 +227,14 @@ export async function gmailSendTool(to: string, subject: string, body: string): 
     for (const rawLine of body.split("\n")) {
       if (!rawLine.trim()) { panelLine("", color); continue; }
       let current = "";
+      let currentLen = 0;
       for (const word of rawLine.split(" ")) {
-        const next = current ? `${current} ${word}` : word;
-        if (next.length > maxW && current) { panelLine(current, color); current = word; }
-        else { current = next; }
+        const wordLen = word.replace(/\*\*/g, "").length;
+        const nextLen = currentLen ? currentLen + 1 + wordLen : wordLen;
+        if (nextLen > maxW && current) { panelLine(mdToTerminal(current), color); current = word; currentLen = wordLen; }
+        else { current = current ? `${current} ${word}` : word; currentLen = nextLen; }
       }
-      if (current) panelLine(current, color);
+      if (current) panelLine(mdToTerminal(current), color);
     }
 
     panelClose(color);
@@ -213,7 +250,7 @@ export async function gmailSendTool(to: string, subject: string, body: string): 
       auth: { user: email, pass: password },
     });
 
-    await transporter.sendMail({ from: email, to, subject, text: body });
+    await transporter.sendMail({ from: email, to, subject, text: body, html: mdToHtml(body) });
     console.log(chalk.red(`\n  ✓ Email sent to ${to}\n`));
     return { ok: true, output: `Email sent to ${to} · subject: "${subject}"` };
   } catch (err) {
@@ -370,7 +407,7 @@ export async function sendEmailDirect(
     service: "gmail",
     auth: { user: fromEmail, pass: password },
   });
-  await transporter.sendMail({ from: fromEmail, to, subject, text: body });
+  await transporter.sendMail({ from: fromEmail, to, subject, text: body, html: mdToHtml(body) });
 }
 
 export async function gmailDisconnectTool(): Promise<ToolResult> {

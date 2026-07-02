@@ -136,12 +136,22 @@ export async function telegramConnectTool(): Promise<ToolResult> {
   const userId = getActiveUserId();
   if (userId === null) return { ok: false, output: "No active user session." };
 
+  // Already connected this session — don't re-prompt
+  if (_sessionToken && _sessionChatId) {
+    return { ok: true, output: "Telegram is already connected and ready to use." };
+  }
+
+  // Credentials saved in OS store — load without re-prompting
+  const stored = await keytar.getPassword(SERVICE, keytarAcct(userId));
+  if (stored) {
+    const creds = JSON.parse(stored) as { token: string; chatId: string };
+    _sessionToken = creds.token;
+    _sessionChatId = creds.chatId;
+    return { ok: true, output: "Telegram already connected and ready to use." };
+  }
+
+  // Nothing stored — run full setup
   stopThinking();
-
-  /* clear any broken session state before retrying */
-  _sessionToken = null;
-  _sessionChatId = null;
-
   try {
     const creds = await runSetup(userId);
     _sessionToken = creds.token;
