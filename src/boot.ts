@@ -1,35 +1,58 @@
 import figlet from "figlet";
-import gradient from "gradient-string";
-import boxen from "boxen";
 import chalk from "chalk";
 import ansiEscapes from "ansi-escapes";
+import { sleep, centerBlock, center, brand, hideCursor, showCursor } from "./ui/hud.js";
 
 const GLITCH_CHARS = "!<>-_\\/[]{}—=+*^?#________";
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function randomChar(): string {
   return GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
 }
 
-function termCols(): number {
-  return process.stdout.columns || 80;
+// ── arc-reactor power-up ─────────────────────────────────────────────────────
+// Procedurally generated so the ring is always a clean circle — no hand-aligned
+// ASCII to drift out of shape on a re-edit. Aspect-corrected for terminal cells.
+
+function buildReactor(radius: number): string[] {
+  const lines: string[] = [];
+  for (let y = -radius; y <= radius; y++) {
+    let line = "";
+    for (let x = -radius * 2; x <= radius * 2; x++) {
+      const dx = x / 2;
+      const dist = Math.sqrt(dx * dx + y * y);
+      if (dist > radius) line += "  ";
+      else if (dist > radius - 1) line += ".  ";
+      else if (dist > radius - 2.1) line += "o  ";
+      else if (dist > radius - 3.1) line += "O  ";
+      else line += "@  ";
+    }
+    lines.push(line.trimEnd());
+  }
+  return lines;
 }
 
-/* pad a single line to sit in the terminal's horizontal center */
-function center(line: string): string {
-  const pad = Math.max(0, Math.floor((termCols() - line.length) / 2));
-  return " ".repeat(pad) + line;
+const REACTOR = buildReactor(4);
+
+async function arcReactorPowerUp(): Promise<void> {
+  const lines = centerBlock(REACTOR);
+  const stages: ((l: string) => string)[] = [
+    (l) => chalk.gray.dim(l),
+    (l) => chalk.blue(l),
+    (l) => chalk.cyan(l),
+    (l) => chalk.whiteBright(l),
+    (l) => brand(l),
+  ];
+
+  for (const paint of stages) {
+    process.stdout.write(ansiEscapes.cursorTo(0, 0) + ansiEscapes.eraseDown);
+    process.stdout.write("\n" + lines.map(paint).join("\n") + "\n");
+    await sleep(130);
+  }
+  await sleep(350);
+  process.stdout.write(ansiEscapes.cursorTo(0, 0) + ansiEscapes.eraseDown);
 }
 
-/* center a block against its widest line so the shape stays intact */
-function centerBlock(lines: string[]): string[] {
-  const widest = Math.max(...lines.map((l) => l.length));
-  const pad = " ".repeat(Math.max(0, Math.floor((termCols() - widest) / 2)));
-  return lines.map((l) => pad + l);
-}
+// ── glitch title reveal ───────────────────────────────────────────────────────
 
 function glitchFrame(lines: string[], progress: number): string {
   return lines
@@ -51,13 +74,12 @@ async function glitchTitle(): Promise<void> {
     horizontalLayout: "full",
   });
   const lines = centerBlock(title.split("\n"));
-  const paint = gradient(["#00c6ff", "#0072ff"]);
 
   const steps = 18;
   for (let i = 0; i <= steps; i++) {
     const frame = glitchFrame(lines, i / steps);
     process.stdout.write(ansiEscapes.cursorTo(0, 0) + ansiEscapes.eraseDown);
-    process.stdout.write(paint.multiline(frame));
+    process.stdout.write(brand.multiline(frame));
     await sleep(55);
   }
   process.stdout.write("\n\n");
@@ -77,10 +99,8 @@ async function bootStatus(): Promise<void> {
 
 /* typewriter reveal, centered as a whole so it doesn't drift while typing */
 async function typeTagline(text: string): Promise<void> {
-  const pad = Math.max(0, Math.floor((termCols() - text.length) / 2));
-  const lead = " ".repeat(pad);
-
-  process.stdout.write(lead);
+  const pad = Math.max(0, Math.floor((process.stdout.columns || 80) - text.length) / 2);
+  process.stdout.write(" ".repeat(Math.floor(pad)));
   for (const ch of text) {
     process.stdout.write(chalk.cyanBright(ch));
     await sleep(45);
@@ -89,11 +109,12 @@ async function typeTagline(text: string): Promise<void> {
 }
 
 export async function showBoot(): Promise<void> {
-  process.stdout.write(ansiEscapes.cursorHide);
+  hideCursor();
 
+  await arcReactorPowerUp();
   await glitchTitle();
   await bootStatus();
   await typeTagline("Just A Rather Very Intelligent System");
 
-  process.stdout.write(ansiEscapes.cursorShow);
+  showCursor();
 }

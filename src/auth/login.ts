@@ -7,6 +7,7 @@ import {
   getUserId,
 } from "../database/users.js";
 import { askText, askPassword } from "./prompts.js";
+import { panel, warn, fail, termWidth, hline, center, brand } from "../ui/hud.js";
 
 export interface Session {
   id: number;
@@ -24,6 +25,14 @@ function gap(): void {
   console.log("");
 }
 
+function authHeader(): void {
+  const w = termWidth();
+  console.log(brand(hline(w)));
+  console.log(brand(center("◈  JARVIS ACCESS TERMINAL  ◈", w)));
+  console.log(brand(hline(w)));
+  console.log(chalk.dim.italic(center("Voice authentication unavailable — falling back to credentials.", w)) + "\n");
+}
+
 async function signUp(): Promise<Outcome> {
   while (true) {
     const username = await askText(
@@ -34,14 +43,17 @@ async function signUp(): Promise<Outcome> {
     if (username.trim().toLowerCase() === "back") return BACK;
 
     if (userExists(username)) {
-      console.log(chalk.yellow("\nThat name is taken. Try another.\n"));
+      console.log(warn("That name is taken. Try another.\n"));
       continue;
     }
 
     const password = await askNewPassword();
 
     const id = createUser(username, password);
-    console.log(chalk.green(`\nAccount created. Welcome, ${username}.\n`));
+    panel(
+      { icon: "◈", title: "NEW PROFILE", color: chalk.green },
+      [chalk.white(`Account created. Welcome, ${chalk.bold(username)}.`)]
+    );
     return { id, username, isNew: true };
   }
 }
@@ -52,14 +64,14 @@ async function askNewPassword(): Promise<string> {
     const password = await askPassword("Set a password (min 4 chars):");
 
     if (password.length < 4) {
-      console.log(chalk.yellow("\nUse at least 4 characters.\n"));
+      console.log(warn("Use at least 4 characters.\n"));
       continue;
     }
 
     const confirm = await askPassword("Re-enter password:");
 
     if (password === confirm) return password;
-    console.log(chalk.yellow("\nPasswords don't match. Try again.\n"));
+    console.log(warn("Passwords don't match. Try again.\n"));
   }
 }
 
@@ -70,7 +82,7 @@ async function signIn(): Promise<Outcome | null> {
     if (username.trim().toLowerCase() === "back") return BACK;
 
     if (!userExists(username)) {
-      console.log(chalk.yellow("\nNo such user.\n"));
+      console.log(warn("No such user.\n"));
       continue;
     }
 
@@ -78,22 +90,29 @@ async function signIn(): Promise<Outcome | null> {
 
     if (verifyUser(username, password)) {
       const id = getUserId(username)!;
-      console.log(chalk.green(`\nWelcome back, ${username}.\n`));
+      panel(
+        { icon: "◈", title: "ACCESS GRANTED", color: chalk.green },
+        [chalk.white(`Welcome back, ${chalk.bold(username)}.`)]
+      );
       return { id, username , isNew: false };
     }
 
     const left = 3 - attempt;
     console.log(
-      chalk.red(
-        `\nWrong password.${left > 0 ? ` ${left} attempt(s) left.` : ""}\n`
-      )
+      fail(`Wrong password.${left > 0 ? ` ${left} attempt(s) left.` : ""}\n`)
     );
   }
 
+  panel(
+    { icon: "✗", title: "ACCESS DENIED", color: chalk.red },
+    [chalk.white("Too many failed attempts. Connection terminated.")]
+  );
   return null;
 }
 
 export async function authenticate(): Promise<Session | null> {
+  authHeader();
+
   while (true) {
     gap();
     const { choice } = await inquirer.prompt<{ choice: string }>([

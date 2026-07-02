@@ -3,9 +3,15 @@ import { setFact } from "../database/memory.js";
 import { deleteUser } from "../database/users.js";
 import { askText, askRaw, askChoice, askConfirm } from "./prompts.js";
 import { selfDestruct, underageFarewell } from "./effects.js";
+import { panel, stepBadge } from "../ui/hud.js";
 import type { Session } from "./login.js";
 
 const MIN_AGE = 16;
+const TOTAL_STEPS = 7;
+
+function step(n: number, label: string): void {
+  console.log(`\n${stepBadge(n, TOTAL_STEPS)}  ${chalk.bold.cyan(label)}`);
+}
 
 function parseAge(raw: string): number | null {
   const n = Number(raw);
@@ -106,11 +112,19 @@ async function educationFlow(session: Session, age: number): Promise<void> {
 }
 
 export async function runOnboarding(session: Session): Promise<void> {
-  console.log(chalk.cyan("\nBefore we begin, let me get to know you.\n"));
+  panel(
+    { icon: "◈", title: "GETTING TO KNOW YOU", color: chalk.cyan },
+    [
+      chalk.white("A short dossier — seven questions, then I won't ask again."),
+      chalk.dim("Everything you tell me is remembered for every session after this one."),
+    ]
+  );
 
+  step(1, "Name");
   const name = await askText("What should I call you?");
   if (name.trim()) setFact(session.id, "preferred_name", name.trim());
 
+  step(2, "Gender");
   const gender = await askChoice("Your gender?", [
     { name: "Male", value: "male" },
     { name: "Female", value: "female" },
@@ -118,20 +132,27 @@ export async function runOnboarding(session: Session): Promise<void> {
   ]);
   setFact(session.id, "gender", gender);
 
+  step(3, "Age");
   const age = await askAge(session);
   setFact(session.id, "age", String(age));
 
-  /* school section comes before job/role now */
+  step(4, "Education");
   await educationFlow(session, age);
 
+  step(5, "Role");
   const role = await askText("And what do you do? (your role or job)");
   if (role.trim()) setFact(session.id, "role", role.trim());
 
+  step(6, "About you");
   const about = await askText("Describe yourself in a sentence or two.");
   if (about.trim()) setFact(session.id, "about", about.trim());
 
-  const dessert = await askText("Last one — your favorite dessert?");
+  step(7, "One last thing");
+  const dessert = await askText("Your favorite dessert?");
   if (dessert.trim()) setFact(session.id, "favorite_dessert", dessert.trim());
 
-  console.log(chalk.green("\nNoted. I'll remember all of that.\n"));
+  panel(
+    { icon: "✓", title: "DOSSIER COMPLETE", color: chalk.green },
+    [chalk.white("Noted. I'll remember all of that.")]
+  );
 }
