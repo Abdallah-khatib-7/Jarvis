@@ -1,10 +1,30 @@
 import OpenAI from "openai";
 import "dotenv/config";
-import type { AIProvider, ChatMessage, ToolCall } from "./types.js";
+import type { AIProvider, ChatMessage, ToolCall, MessageContent } from "./types.js";
 import { TOOL_DEFINITIONS, runTool } from "../tools/registry.js";
 
 const MODEL = "gpt-4o-mini";
+const VISION_MODEL = "gpt-4o";
 const MAX_TURNS = 10;
+
+function hasImages(messages: ChatMessage[]): boolean {
+  return messages.some(
+    (m) => Array.isArray(m.content) && m.content.some((p) => p.type === "image")
+  );
+}
+
+function toContentParts(
+  content: MessageContent
+): OpenAI.Chat.Completions.ChatCompletionContentPart[] {
+  if (typeof content === "string") return [{ type: "text", text: content }];
+  return content.map((part) => {
+    if (part.type === "text") return { type: "text" as const, text: part.text };
+    return {
+      type: "image_url" as const,
+      image_url: { url: `data:${part.mimeType};base64,${part.base64}`, detail: "auto" as const },
+    };
+  });
+}
 
 function getClient(): OpenAI {
   const key = process.env.OPENAI_API_KEY;
@@ -32,14 +52,14 @@ function toOpenAIMessages(
     if (m.role === "tool") {
       return {
         role: "tool",
-        content: m.content,
+        content: typeof m.content === "string" ? m.content : "",
         tool_call_id: m.toolCallId!,
       };
     }
     if (m.role === "assistant" && m.toolCalls?.length) {
       return {
         role: "assistant",
-        content: m.content || null,
+        content: typeof m.content === "string" ? m.content || null : null,
         tool_calls: m.toolCalls.map((tc) => ({
           id: tc.id,
           type: "function",
@@ -47,7 +67,10 @@ function toOpenAIMessages(
         })),
       };
     }
-    return { role: m.role, content: m.content };
+    if (m.role === "user") {
+      return { role: "user", content: toContentParts(m.content) };
+    }
+    return { role: m.role, content: typeof m.content === "string" ? m.content : "" };
   });
 }
 
@@ -58,9 +81,11 @@ export const openAIProvider: AIProvider = {
     const client = getClient();
     const conversation = [...messages];
 
+    const model = hasImages(conversation) ? VISION_MODEL : MODEL;
+
     for (let turn = 0; turn < MAX_TURNS; turn++) {
       const res = await client.chat.completions.create({
-        model: MODEL,
+        model,
         messages: toOpenAIMessages(conversation),
         tools: toOpenAITools(),
         temperature: 0.9,
@@ -106,7 +131,7 @@ export const openAIProvider: AIProvider = {
     }
 
     const fallback = await client.chat.completions.create({
-      model: MODEL,
+      model,
       messages: toOpenAIMessages(conversation),
       temperature: 0.9,
     });

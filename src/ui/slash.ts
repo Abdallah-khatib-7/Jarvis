@@ -3,6 +3,7 @@ import chalk from "chalk";
 import keytar from "keytar";
 import { setFact, getFact, getAllFacts } from "../database/memory.js";
 import { revealSpeech } from "./reveal.js";
+import { openFileDialog, processAttachment, showAttachmentPanel, type Attachment } from "./attach.js";
 import {
   hackEffect,
   tonyStory,
@@ -21,7 +22,7 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 // ── return type ───────────────────────────────────────────────────────────────
 
 export type SlashResult =
-  | { kind: "message"; text: string }
+  | { kind: "message"; text: string; attachment?: Attachment }
   | { kind: "handled" }
   | { kind: "clear" }
   | { kind: "exit" };
@@ -475,6 +476,10 @@ async function showMenu(): Promise<string> {
 
         new S(chalk.dim(" ─── QUICK ACTIONS ───────────────────────────────────── ")),
         {
+          name: chalk.yellow("/attach") + chalk.dim("         Attach a file — image, PDF, Word, code…"),
+          value: "/attach",
+        },
+        {
           name: chalk.yellow("/reminders") + chalk.dim("      List & manage active reminders"),
           value: "/reminders",
         },
@@ -564,6 +569,27 @@ export async function handleSlash(
 
     case "/disconnect":
       return disconnectService();
+
+    case "/attach": {
+      console.log(chalk.dim("\n  Opening file picker…\n"));
+      const filePath = await openFileDialog();
+      if (!filePath) {
+        console.log(chalk.dim("  Cancelled.\n"));
+        return { kind: "handled" };
+      }
+      const att = await processAttachment(filePath);
+      showAttachmentPanel(att);
+      const { msg } = await inquirer.prompt<{ msg: string }>([
+        {
+          type: "input",
+          name: "msg",
+          message: "Say something about this file:",
+          default: "",
+        },
+      ]);
+      const text = msg.trim() || `Analyze this: ${att.filename}`;
+      return { kind: "message", text, attachment: att };
+    }
 
     case "/reminders":
       return { kind: "message", text: "list my active reminders" };

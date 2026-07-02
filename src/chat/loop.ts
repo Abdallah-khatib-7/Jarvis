@@ -1,7 +1,8 @@
 import chalk from "chalk";
 import { openAIProvider } from "../ai/openai.js";
 import { claudeProvider } from "../ai/claude.js";
-import type { AIProvider, ChatMessage } from "../ai/types.js";
+import type { AIProvider, ChatMessage, MessageContent } from "../ai/types.js";
+import type { Attachment } from "../ui/attach.js";
 import { withThinking } from "../ui/thinking.js";
 import { revealSpeech } from "../ui/reveal.js";
 import { getFact, getAllFacts } from "../database/memory.js";
@@ -14,6 +15,34 @@ import { loadPendingReminders } from "../tools/reminders.js";
 import type { Session } from "../auth/login.js";
 
 const PROMPT_ARROW = chalk.red("⟩");
+
+// ── build message content (text + optional attachment) ─────────────────────────
+
+function buildContent(text: string, attachment?: Attachment): MessageContent {
+  if (!attachment) return text;
+
+  // Image → multimodal
+  if (attachment.base64 && attachment.mimeType) {
+    return [
+      { type: "image", base64: attachment.base64, mimeType: attachment.mimeType },
+      { type: "text", text: text },
+    ];
+  }
+
+  // Document / text → prepend as context block
+  if (attachment.textContent) {
+    const header = attachment.pageCount
+      ? `[Attached file: ${attachment.filename} — ${attachment.pageCount} pages]\n\n`
+      : `[Attached file: ${attachment.filename}]\n\n`;
+    const MAX_CHARS = 40_000;
+    const body = attachment.textContent.length > MAX_CHARS
+      ? attachment.textContent.slice(0, MAX_CHARS) + "\n\n[...truncated]"
+      : attachment.textContent;
+    return `${header}${body}\n\n---\n\n${text}`;
+  }
+
+  return text;
+}
 
 function resolveProvider(session: Session): AIProvider {
   const pref = getFact(session.id, "ai_provider");
@@ -178,6 +207,13 @@ function buildSystemPrompt(session: Session): string {
     `  - "What are you?" / "who made you?" → answer in character; the user built you`,
     `  - Binary / matrix displays → be enigmatic, lean into the theme`,
     ``,
+    `Images — when the user attaches an image:`,
+    `  - Analyze it thoroughly: describe what you see, identify any errors, UI issues, or code.`,
+    `  - For screenshots of errors/code: diagnose the problem and suggest fixes directly.`,
+    `  - For UI screenshots: comment on design, layout, and usability.`,
+    `  - For diagrams or documents: extract and summarize the key information.`,
+    `  - Always act on what you see — don't just describe, actually help.`,
+    ``,
     `Style:`,
     `  - Keep spoken replies short. Panels, diffs, and memory cards speak for themselves.`,
     `  - Stay in character. Never break voice.`,
@@ -225,8 +261,8 @@ export async function runChatLoop(session: Session): Promise<void> {
         process.exit(0);
       }
 
-      // kind === "message" — send result.text to the AI
-      conversation.push({ role: "user", content: result.text });
+      // kind === "message" — send result.text (+ optional attachment) to the AI
+      conversation.push({ role: "user", content: buildContent(result.text, result.attachment) });
     } else {
       conversation.push({ role: "user", content: input });
     }

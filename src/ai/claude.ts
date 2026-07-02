@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import "dotenv/config";
-import type { AIProvider, ChatMessage, ToolCall } from "./types.js";
+import type { AIProvider, ChatMessage, ToolCall, MessageContent } from "./types.js";
 import { TOOL_DEFINITIONS, runTool } from "../tools/registry.js";
 
 const MODEL = "claude-sonnet-4-6";
@@ -24,6 +24,17 @@ function toAnthropicTools(): Anthropic.Tool[] {
   }));
 }
 
+function toClaudeContent(content: MessageContent): Anthropic.ContentBlockParam[] {
+  if (typeof content === "string") return [{ type: "text", text: content }];
+  return content.map((part): Anthropic.ContentBlockParam => {
+    if (part.type === "text") return { type: "text", text: part.text };
+    return {
+      type: "image",
+      source: { type: "base64", media_type: part.mimeType, data: part.base64 },
+    };
+  });
+}
+
 function toAnthropicMessages(messages: ChatMessage[]): {
   system: string;
   msgs: Anthropic.MessageParam[];
@@ -36,13 +47,13 @@ function toAnthropicMessages(messages: ChatMessage[]): {
     const msg = messages[i];
 
     if (msg.role === "system") {
-      system = msg.content;
+      system = typeof msg.content === "string" ? msg.content : "";
       i++;
       continue;
     }
 
     if (msg.role === "user") {
-      msgs.push({ role: "user", content: msg.content });
+      msgs.push({ role: "user", content: toClaudeContent(msg.content) });
       i++;
       continue;
     }
@@ -50,8 +61,9 @@ function toAnthropicMessages(messages: ChatMessage[]): {
     if (msg.role === "assistant") {
       if (msg.toolCalls?.length) {
         const content: Anthropic.ContentBlockParam[] = [];
-        if (msg.content) {
-          content.push({ type: "text", text: msg.content });
+        const assistantText = typeof msg.content === "string" ? msg.content : "";
+        if (assistantText) {
+          content.push({ type: "text", text: assistantText });
         }
         for (const tc of msg.toolCalls) {
           const block: Anthropic.ToolUseBlockParam = {
@@ -64,7 +76,7 @@ function toAnthropicMessages(messages: ChatMessage[]): {
         }
         msgs.push({ role: "assistant", content });
       } else {
-        msgs.push({ role: "assistant", content: msg.content });
+        msgs.push({ role: "assistant", content: typeof msg.content === "string" ? msg.content : "" });
       }
       i++;
       continue;
@@ -78,7 +90,7 @@ function toAnthropicMessages(messages: ChatMessage[]): {
         toolResults.push({
           type: "tool_result",
           tool_use_id: messages[i].toolCallId!,
-          content: messages[i].content,
+          content: typeof messages[i].content === "string" ? messages[i].content as string : "",
         });
         i++;
       }
