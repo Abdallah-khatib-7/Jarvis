@@ -1,0 +1,9 @@
+src/
+*.db
+*.db-wal
+*.db-shm
+.claude/
+.env
+*.md
+!README.md
+.git/
