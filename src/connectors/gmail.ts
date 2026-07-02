@@ -359,6 +359,20 @@ export async function gmailReadTool(uid: number): Promise<ToolResult> {
   }
 }
 
+export async function sendEmailDirect(
+  fromEmail: string,
+  password: string,
+  to: string,
+  subject: string,
+  body: string
+): Promise<void> {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: fromEmail, pass: password },
+  });
+  await transporter.sendMail({ from: fromEmail, to, subject, text: body });
+}
+
 export async function gmailDisconnectTool(): Promise<ToolResult> {
   const userId = getActiveUserId();
   if (userId === null) return { ok: false, output: "No active user session." };

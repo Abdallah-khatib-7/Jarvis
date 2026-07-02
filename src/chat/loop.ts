@@ -10,6 +10,7 @@ import { askRaw } from "../auth/prompts.js";
 import { setActiveUser } from "../tools/memoryTools.js";
 import { isFirstRun, runTour } from "../ui/tour.js";
 import { handleSlash } from "../ui/slash.js";
+import { loadPendingReminders } from "../tools/reminders.js";
 import type { Session } from "../auth/login.js";
 
 const PROMPT_ARROW = chalk.red("⟩");
@@ -127,12 +128,16 @@ function buildSystemPrompt(session: Session): string {
     `  - Proactively offer Telegram after long tasks (tests, builds, deploys).`,
     `  - When sending code or paths use <code>...</code> formatting.`,
     ``,
-    `Reminders — schedule alerts that fire in the background:`,
-    `  remind_me(message, delay_minutes) — fires terminal bell + Telegram message`,
-    `  list_reminders                    — see pending reminders`,
+    `Reminders — persistent alerts that survive JARVIS restarts:`,
+    `  remind_me(message, delay_minutes) — schedule a reminder; user picks Telegram or Gmail delivery`,
+    `  list_reminders                    — see all pending reminders with time remaining`,
     `  cancel_reminder(id)               — cancel by ID`,
-    `  Parse duration from natural language: "in 30 min" → 30, "in 2 hours" → 120.`,
-    `  After setting: confirm what you set and when it will fire.`,
+    `  Rules:`,
+    `  - Parse natural language durations: "in 30 min" → 30, "in 2 hours" → 120, "in 1.5 hours" → 90`,
+    `  - remind_me will prompt the user to choose Telegram or Gmail if not already set`,
+    `  - If the user has NO connectors (no Telegram, no Gmail), remind_me will tell them to connect one first`,
+    `  - Reminders are saved to SQLite and rescheduled automatically on next JARVIS startup`,
+    `  - After setting, confirm the reminder text, delay, time it fires, and delivery method`,
     ``,
     `Gmail — read and send emails from the user's Gmail:`,
     `  gmail_connect    — set up Gmail (App Password, no OAuth needed)`,
@@ -171,6 +176,9 @@ export async function runChatLoop(session: Session): Promise<void> {
   ];
 
   console.log(chalk.dim(`\nJARVIS_zeusModal-1.02  ·  say something, or type  /  for commands.\n`));
+
+  // Restore persisted reminders from previous sessions
+  await loadPendingReminders(session.id);
 
   // Show first-run tour once
   if (isFirstRun(session)) {
