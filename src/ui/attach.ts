@@ -85,6 +85,34 @@ export async function openFileDialog(): Promise<string | null> {
   }
 }
 
+// ── screenshot capture ──────────────────────────────────────────────────────
+
+export async function captureScreenshot(): Promise<string | null> {
+  const outPath = path.join(os.tmpdir(), `jarvis_screen_${Date.now()}.png`);
+  const script = [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "Add-Type -AssemblyName System.Drawing",
+    "$bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen",
+    "$bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height",
+    "$g = [System.Drawing.Graphics]::FromImage($bmp)",
+    "$g.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)",
+    `$bmp.Save("${outPath.replace(/\\/g, "\\\\")}", [System.Drawing.Imaging.ImageFormat]::Png)`,
+    "$g.Dispose()",
+    "$bmp.Dispose()",
+  ].join("\n");
+
+  const tmpScript = path.join(os.tmpdir(), `jarvis_screen_${Date.now()}.ps1`);
+  try {
+    writeFileSync(tmpScript, script, "utf8");
+    execSync(`powershell -NoProfile -File "${tmpScript}"`, { stdio: ["pipe", "pipe", "pipe"] });
+    return statSync(outPath).isFile() ? outPath : null;
+  } catch {
+    return null;
+  } finally {
+    try { unlinkSync(tmpScript); } catch {}
+  }
+}
+
 // ── process selected file ─────────────────────────────────────────────────────
 
 export async function processAttachment(filePath: string): Promise<Attachment> {

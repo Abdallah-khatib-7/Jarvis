@@ -4,7 +4,8 @@ import keytar from "keytar";
 import { setFact, getFact, getAllFacts } from "../database/memory.js";
 import { getDailyTokens, getTimeUntilReset, DAILY_LIMIT } from "../database/tokenUsage.js";
 import { revealSpeech } from "./reveal.js";
-import { openFileDialog, processAttachment, showAttachmentPanel, type Attachment } from "./attach.js";
+import { openFileDialog, processAttachment, showAttachmentPanel, captureScreenshot, type Attachment } from "./attach.js";
+import { unlinkSync } from "fs";
 import {
   hackEffect,
   tonyStory,
@@ -92,6 +93,7 @@ function showHelp(): void {
     "",
     "  " + chalk.white("── QUICK ACTIONS ───────────────────────────────────────────────────"),
     row("/voice", "Push-to-talk — speak to JARVIS, hear the reply"),
+    row("/screen", "Screenshot your desktop — JARVIS looks and explains"),
     row("/reminders", "List & manage active reminders"),
     row("/search", "Search the web (prompts for query)"),
     row("/news", "Search latest news (prompts for query)"),
@@ -502,6 +504,10 @@ async function showMenu(): Promise<string> {
           value: "/voice",
         },
         {
+          name: chalk.yellow("/screen") + chalk.dim("         Screenshot your desktop for JARVIS to see"),
+          value: "/screen",
+        },
+        {
           name: chalk.yellow("/attach") + chalk.dim("         Attach a file — image, PDF, Word, code…"),
           value: "/attach",
         },
@@ -614,6 +620,29 @@ export async function handleSlash(
         },
       ]);
       const text = msg.trim() || `Analyze this: ${att.filename}`;
+      return { kind: "message", text, attachment: att };
+    }
+
+    case "/screen": {
+      console.log(chalk.dim("\n  Capturing your screen…\n"));
+      const shotPath = await captureScreenshot();
+      if (!shotPath) {
+        console.log(chalk.red("  Couldn't capture the screen.\n"));
+        return { kind: "handled" };
+      }
+      const att = await processAttachment(shotPath);
+      try { unlinkSync(shotPath); } catch {}
+
+      showAttachmentPanel(att);
+      const { msg } = await inquirer.prompt<{ msg: string }>([
+        {
+          type: "input",
+          name: "msg",
+          message: "What do you want to know about your screen?",
+          default: "",
+        },
+      ]);
+      const text = msg.trim() || "What's on my screen right now?";
       return { kind: "message", text, attachment: att };
     }
 
