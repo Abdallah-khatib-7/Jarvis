@@ -25,6 +25,7 @@ export interface ChatMessage {
 
 export interface AIProvider {
   name: string;
-  /* send a conversation, get back the assistant's final reply text (after any tool use) */
+  /** tokens consumed by the most recent chat() call (prompt + completion, all turns) */
+  lastTokensUsed: number;
   chat(messages: ChatMessage[]): Promise<string>;
 }

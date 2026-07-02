@@ -106,10 +106,12 @@ function toAnthropicMessages(messages: ChatMessage[]): {
 
 export const claudeProvider: AIProvider = {
   name: "claude",
+  lastTokensUsed: 0,
 
   async chat(messages: ChatMessage[]): Promise<string> {
     const client = getClient();
     const conversation = [...messages];
+    this.lastTokensUsed = 0;
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
       const { system, msgs } = toAnthropicMessages(conversation);
@@ -121,6 +123,7 @@ export const claudeProvider: AIProvider = {
         messages: msgs,
         tools: toAnthropicTools(),
       });
+      this.lastTokensUsed += response.usage.input_tokens + response.usage.output_tokens;
 
       const textBlocks = response.content.filter(
         (b): b is Anthropic.TextBlock => b.type === "text"

@@ -3,6 +3,13 @@ import { openAIProvider } from "../ai/openai.js";
 import { claudeProvider } from "../ai/claude.js";
 import type { AIProvider, ChatMessage, MessageContent } from "../ai/types.js";
 import type { Attachment } from "../ui/attach.js";
+import {
+  addTokens,
+  getDailyTokens,
+  getTimeUntilReset,
+  DAILY_LIMIT,
+  WARN_AT,
+} from "../database/tokenUsage.js";
 import { withThinking } from "../ui/thinking.js";
 import { revealSpeech } from "../ui/reveal.js";
 import { getFact, getAllFacts } from "../database/memory.js";
@@ -223,6 +230,49 @@ function buildSystemPrompt(session: Session): string {
   ].join("\n");
 }
 
+// ── token limit UI ────────────────────────────────────────────────────────────
+
+function fmt(n: number): string {
+  return n.toLocaleString();
+}
+
+function showLimitReached(used: number): void {
+  const w = Math.min((process.stdout.columns || 80) - 2, 88);
+  const tag = " ⚠  USAGE LIMIT REACHED ";
+  const fill = "─".repeat(Math.max(0, w - 2 - tag.length));
+  const reset = getTimeUntilReset();
+  const c = chalk.red;
+
+  process.stdout.write("\n");
+  process.stdout.write(c(`╭─${tag}${fill}`) + "\n");
+  process.stdout.write(c("│") + "\n");
+  process.stdout.write(
+    c("│") + "  " + chalk.bold.white(`${fmt(used)} / ${fmt(DAILY_LIMIT)} tokens used today`) + "\n"
+  );
+  process.stdout.write(c("│") + "\n");
+  process.stdout.write(
+    c("│") + "  " + chalk.dim(`JARVIS is taking a break. Limit resets in `) +
+    chalk.white(reset) + chalk.dim(" (midnight local time).") + "\n"
+  );
+  process.stdout.write(
+    c("│") + "  " + chalk.dim("Everything will be back to full power then.") + "\n"
+  );
+  process.stdout.write(c("│") + "\n");
+  process.stdout.write(c(`╰${"─".repeat(w - 1)}`) + "\n\n");
+}
+
+function showUsageWarning(used: number): void {
+  const pct = Math.round((used / DAILY_LIMIT) * 100);
+  const reset = getTimeUntilReset();
+  process.stdout.write(
+    chalk.dim(`\n  ⚠  `) +
+    chalk.yellow(`${fmt(used)} / ${fmt(DAILY_LIMIT)}`) +
+    chalk.dim(` tokens  ·  ${pct}% used  ·  resets in `) +
+    chalk.white(reset) +
+    "\n\n"
+  );
+}
+
 export async function runChatLoop(session: Session): Promise<void> {
   setActiveUser(session.id);
 
@@ -267,13 +317,39 @@ export async function runChatLoop(session: Session): Promise<void> {
       conversation.push({ role: "user", content: input });
     }
 
+    // ── token cap check ───────────────────────────────────────────────────────
+    const used = getDailyTokens(session.id);
+    if (used >= DAILY_LIMIT) {
+      showLimitReached(used);
+      continue;
+    }
+    if (used / DAILY_LIMIT >= WARN_AT) {
+      showUsageWarning(used);
+    }
+
     const provider = resolveProvider(session);
     const reply = await withThinking(
       () => provider.chat(conversation),
       "Thinking"
     );
 
+    addTokens(session.id, provider.lastTokensUsed, provider.name);
+
     conversation.push({ role: "assistant", content: reply });
+
+    // Strip image base64 from history — image was already analyzed, no need to
+    // re-send thousands of tokens on every subsequent message.
+    for (const msg of conversation) {
+      if (Array.isArray(msg.content) && msg.content.some((p) => p.type === "image")) {
+        const texts = msg.content
+          .filter((p): p is { type: "text"; text: string } => p.type === "text")
+          .map((p) => p.text)
+          .join("\n");
+        const imgCount = msg.content.filter((p) => p.type === "image").length;
+        msg.content = `[${imgCount} image${imgCount > 1 ? "s" : ""} — already analyzed above]${texts ? `\n${texts}` : ""}`;
+      }
+    }
+
     await revealSpeech(reply);
   }
 }

@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import keytar from "keytar";
 import { setFact, getFact, getAllFacts } from "../database/memory.js";
+import { getDailyTokens, getTimeUntilReset, DAILY_LIMIT } from "../database/tokenUsage.js";
 import { revealSpeech } from "./reveal.js";
 import { openFileDialog, processAttachment, showAttachmentPanel, type Attachment } from "./attach.js";
 import {
@@ -200,6 +201,24 @@ async function showStatus(session: Session): Promise<void> {
     c
   );
   panelLine("  " + chalk.dim("Gmail        ") + gmailLabel, c);
+  panelLine(c("│"), c);
+
+  // token usage bar
+  const used = getDailyTokens(userId);
+  const pct = Math.min(used / DAILY_LIMIT, 1);
+  const barW = 28;
+  const filled = Math.round(pct * barW);
+  const barColor = pct >= 1 ? chalk.red : pct >= 0.9 ? chalk.yellow : chalk.green;
+  const bar = barColor("█".repeat(filled)) + chalk.dim("░".repeat(barW - filled));
+  const usedFmt = used.toLocaleString();
+  const limitFmt = DAILY_LIMIT.toLocaleString();
+  const resetIn = getTimeUntilReset();
+  panelLine(
+    "  " + chalk.dim("Tokens today ") + bar + "  " +
+    chalk.white(`${usedFmt} / ${limitFmt}`) +
+    chalk.dim(`  resets in ${resetIn}`),
+    c
+  );
   panelClose(c);
 }
 

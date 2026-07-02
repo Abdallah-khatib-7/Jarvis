@@ -76,10 +76,12 @@ function toOpenAIMessages(
 
 export const openAIProvider: AIProvider = {
   name: "openai",
+  lastTokensUsed: 0,
 
   async chat(messages: ChatMessage[]): Promise<string> {
     const client = getClient();
     const conversation = [...messages];
+    this.lastTokensUsed = 0;
 
     const model = hasImages(conversation) ? VISION_MODEL : MODEL;
 
@@ -90,6 +92,7 @@ export const openAIProvider: AIProvider = {
         tools: toOpenAITools(),
         temperature: 0.9,
       });
+      this.lastTokensUsed += (res.usage?.prompt_tokens ?? 0) + (res.usage?.completion_tokens ?? 0);
 
       const choice = res.choices[0]?.message;
       if (!choice) return "";
@@ -135,6 +138,7 @@ export const openAIProvider: AIProvider = {
       messages: toOpenAIMessages(conversation),
       temperature: 0.9,
     });
+    this.lastTokensUsed += (fallback.usage?.prompt_tokens ?? 0) + (fallback.usage?.completion_tokens ?? 0);
     return fallback.choices[0]?.message?.content ?? "I wasn't able to finish that one — try rephrasing.";
   },
 };
