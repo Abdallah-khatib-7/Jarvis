@@ -29,3 +29,8 @@ test-picker.ts
 
 # Local speech-to-text model cache (downloaded on first /voice use)
 .voice-cache/
+
+*.db
+cleanup.ts
+*.db-wal
+*.db-shm
