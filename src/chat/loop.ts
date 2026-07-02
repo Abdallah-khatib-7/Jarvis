@@ -19,6 +19,8 @@ import { setActiveUser } from "../tools/memoryTools.js";
 import { isFirstRun, runTour } from "../ui/tour.js";
 import { handleSlash } from "../ui/slash.js";
 import { loadPendingReminders } from "../tools/reminders.js";
+import { runBriefing, shouldShowBriefing } from "../ui/briefing.js";
+import { startWatchdog } from "../tools/watchdog.js";
 import type { Session } from "../auth/login.js";
 
 const PROMPT_ARROW = chalk.red("⟩");
@@ -169,9 +171,17 @@ export async function runChatLoop(session: Session): Promise<void> {
   // Restore persisted reminders from previous sessions
   await loadPendingReminders(session.id);
 
+  // Start system watchdog (silent background monitor)
+  startWatchdog(session);
+
   // Show first-run tour once
   if (isFirstRun(session)) {
     await runTour(session);
+  }
+
+  // Morning briefing — once per day on startup
+  if (shouldShowBriefing(session.id)) {
+    await runBriefing(session);
   }
 
   while (true) {
