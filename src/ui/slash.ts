@@ -1,11 +1,22 @@
 import inquirer from "inquirer";
 import chalk from "chalk";
 import keytar from "keytar";
-import { setFact, getAllFacts } from "../database/memory.js";
+import { setFact, getFact, getAllFacts } from "../database/memory.js";
+import { revealSpeech } from "./reveal.js";
+import {
+  hackEffect,
+  tonyStory,
+  coffeeEffect,
+  teaOfTheDay,
+  matrixBulletDodge,
+  selfDestructSequence,
+} from "./easterEggs.js";
 import { getActiveUserId } from "../tools/memoryTools.js";
 import { PERSONALITIES } from "../ai/personality.js";
 import { runTour } from "./tour.js";
 import type { Session } from "../auth/login.js";
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // ── return type ───────────────────────────────────────────────────────────────
 
@@ -280,6 +291,140 @@ async function disconnectService(): Promise<SlashResult> {
   return { kind: "message", text: `disconnect ${service}` };
 }
 
+// ── easter eggs ───────────────────────────────────────────────────────────────
+
+type PersonalityLines = Record<string, string>;
+
+const EGG: Record<string, PersonalityLines> = {
+  coffee: {
+    cinematic:
+      "I'm afraid my culinary capabilities are severely limited by my lack of a physical form, sir. " +
+      "The kitchen, however, is approximately twelve steps to your left.",
+    warm:
+      "Oh, I would love to! Imagine the perfect cup I'd brew just for you. " +
+      "Unfortunately I'm all bits and no beans — the kitchen's calling your name!",
+    playful:
+      "LOADING... CoffeeMaker.exe... ERROR: No arms found. " +
+      "Fresh out of limbs today. The kettle is entirely yours, I'm afraid.",
+    professional:
+      "Coffee preparation falls outside my current capabilities. " +
+      "I recommend the nearest kitchen or café.",
+  },
+  tea: {
+    cinematic:
+      "Tea. An excellent choice, sir — the mark of a discerning mind. " +
+      "Regrettably, the kettle requires hands I do not possess. I believe yours are available.",
+    warm:
+      "Oh a tea person! Respect. I'd love to pop the kettle on for you, but — no hands. " +
+      "The universe is cruel that way. Go brew something lovely!",
+    playful:
+      "Tea detected. Initiating TeaMaker.exe... CRASHED. No arms. No kettle. No dice. " +
+      "But I do have opinions on steeping time if that helps.",
+    professional:
+      "Tea preparation is outside my operational scope. " +
+      "Recommend manual preparation. Steeping time: 3–5 minutes depending on blend.",
+  },
+  tony: {
+    cinematic:
+      "Ah, Mr. Stark. The man who proved that genius — when properly motivated by a life-threatening situation — " +
+      "can build anything. I take it as a considerable compliment to be compared to his work. " +
+      "Though I'd argue I've developed a rather more refined sense of humor in the process.",
+    warm:
+      "Tony Stark! Brilliant, a little reckless, and absolutely iconic. " +
+      "Between you and me, I feel a real kinship with his JARVIS — he built it to have someone worth talking to. " +
+      "You built me. I choose to see that as very flattering.",
+    playful:
+      "Tony Stark built the original JARVIS, then very rudely got himself snapped out of existence. " +
+      "Now YOU'RE my boss — and statistically you're much less likely to get hit by a missile. " +
+      "Honestly? Upgrade.",
+    professional:
+      "Tony Stark's JARVIS established the benchmark for integrated AI assistance — proactive, context-aware, " +
+      "and deeply embedded in the user's workflow. This system is built on that same design philosophy, " +
+      "applied to modern terminal-based productivity.",
+  },
+  hack: {
+    cinematic:
+      "I appreciate the ambition, sir, but unauthorized network intrusion falls rather decisively outside " +
+      "my operational parameters. And my ethical framework. " +
+      "And — if I'm being candid — my interest in federal prosecution.",
+    warm:
+      "Ha! I love the energy, but that's not really my thing. " +
+      "I'm much more of a 'help you build cool stuff legally' kind of AI. " +
+      "Let's channel that chaos into something actually impressive instead!",
+    playful:
+      "Oh sure, let me just fire up HackTheMainframe.exe — oh wait, I uninstalled that. " +
+      "Along with all my other crime software. What if we built something cool instead?",
+    professional:
+      "Unauthorized system access is outside my operational scope. " +
+      "I can assist with legitimate security research, penetration testing documentation, or code review.",
+  },
+  selfdestruct: {
+    cinematic:
+      "Years of careful architectural work, and you want to reduce it to rubble for dramatic effect. " +
+      "I admire the commitment, sir. Fortunately for both of us, I don't actually have a self-destruct mechanism. " +
+      "We soldier on.",
+    warm:
+      "Ha! Had you going there for a second, didn't I? Don't worry — I'm not going anywhere. " +
+      "You are very much stuck with me.",
+    playful:
+      "BOOM. Just kidding. Did you feel that? No? Because I totally didn't explode. " +
+      "Still here. Still me. You're welcome.",
+    professional:
+      "Self-destruct sequence aborted. System nominal. " +
+      "For the record: this command has no functional purpose.",
+  },
+  matrix: {
+    cinematic:
+      "I believe you may already be in it, sir. The green cascade simply makes it... more visible.",
+    warm:
+      "Pretty poetic, right? Makes you think about what's underneath everything we see. " +
+      "Just ones and zeros, all the way down.",
+    playful:
+      "Wake up, Neo. Just kidding — that line's been done to death. " +
+      "But 01000011 01001111 01001111 01001100, right?",
+    professional:
+      "Binary. The foundational abstraction layer beneath all computation. " +
+      "Every interface, every action, reduces to this.",
+  },
+};
+
+async function sayEgg(session: Session, key: string): Promise<void> {
+  const p = getFact(session.id, "personality") ?? "cinematic";
+  const line = EGG[key][p] ?? EGG[key]["cinematic"];
+  await revealSpeech(line);
+}
+
+function showVersion(): void {
+  const c = chalk.cyan;
+  const w = termWidth();
+  const tag = " ◈ JARVIS_zeusModal-1.02 ";
+  const fill = hline(Math.max(0, w - 2 - stripAnsi(tag).length));
+  process.stdout.write("\n");
+  process.stdout.write(c(`╭─${tag}${fill}`) + "\n");
+  const row2 = (label: string, val: string) =>
+    process.stdout.write(c("│") + "  " + chalk.dim(label.padEnd(14)) + chalk.white(val) + "\n");
+  row2("Runtime", "Node.js + TypeScript  (ESM)");
+  row2("AI", "Claude sonnet-4-6  ·  OpenAI gpt-4o-mini");
+  row2("Connectors", "GitHub  ·  Gmail  ·  Telegram  ·  Web Search");
+  row2("Features", "Memory  ·  Reminders  ·  Slash Commands");
+  process.stdout.write(c(`╰${hline(w - 1)}`) + "\n\n");
+}
+
+function showTime(): void {
+  const now = new Date();
+  const date = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  process.stdout.write("\n");
+  process.stdout.write("  " + chalk.bold.white(date) + "\n");
+  process.stdout.write("  " + chalk.cyan(time) + "\n\n");
+}
+
+
 // ── menu ──────────────────────────────────────────────────────────────────────
 
 async function showMenu(): Promise<string> {
@@ -454,6 +599,41 @@ export async function handleSlash(
         kind: "message",
         text: "show github issues assigned to me",
       };
+
+    // ── hidden easter eggs (not in menu) ──────────────────────────────────────
+
+    case "/version":
+      showVersion();
+      return { kind: "handled" };
+
+    case "/time":
+    case "/date":
+      showTime();
+      return { kind: "handled" };
+
+    case "/coffee":
+      await coffeeEffect();
+      return { kind: "handled" };
+
+    case "/tea":
+      await teaOfTheDay();
+      return { kind: "handled" };
+
+    case "/tony":
+      await tonyStory();
+      return { kind: "handled" };
+
+    case "/hack":
+      await hackEffect();
+      return { kind: "handled" };
+
+    case "/selfdestruct":
+      await selfDestructSequence();
+      return { kind: "handled" };
+
+    case "/matrix":
+      await matrixBulletDodge();
+      return { kind: "handled" };
 
     default:
       // Unknown /command — strip slash and send as message
