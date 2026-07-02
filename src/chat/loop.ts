@@ -21,6 +21,7 @@ import { handleSlash } from "../ui/slash.js";
 import { loadPendingReminders } from "../tools/reminders.js";
 import { runBriefing, shouldShowBriefing } from "../ui/briefing.js";
 import { startWatchdog } from "../tools/watchdog.js";
+import { speak } from "../voice/index.js";
 import type { Session } from "../auth/login.js";
 
 const PROMPT_ARROW = chalk.red("⟩");
@@ -191,6 +192,8 @@ export async function runChatLoop(session: Session): Promise<void> {
     /* refresh system message so facts stored mid-session are always current */
     conversation[0] = { role: "system", content: buildSystemPrompt(session) };
 
+    let speakReply = false;
+
     // ── slash commands ────────────────────────────────────────────────────────
     if (input.trim() === "/" || input.trim().startsWith("/")) {
       const result = await handleSlash(input.trim(), session);
@@ -207,6 +210,7 @@ export async function runChatLoop(session: Session): Promise<void> {
 
       // kind === "message" — send result.text (+ optional attachment) to the AI
       conversation.push({ role: "user", content: buildContent(result.text, result.attachment) });
+      speakReply = result.speak === true;
     } else {
       conversation.push({ role: "user", content: input });
     }
@@ -253,6 +257,14 @@ export async function runChatLoop(session: Session): Promise<void> {
     }
 
     await revealSpeech(reply);
+
+    if (speakReply) {
+      try {
+        await speak(reply);
+      } catch {
+        console.log(chalk.dim("  (voice reply failed — showing text only)"));
+      }
+    }
 
     // Dim token line after each response so the user can see per-message cost
     const totalNow = getDailyTokens(session.id);

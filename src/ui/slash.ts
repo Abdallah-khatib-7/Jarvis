@@ -14,6 +14,7 @@ import {
   selfDestructSequence,
 } from "./easterEggs.js";
 import { getActiveUserId } from "../tools/memoryTools.js";
+import { captureVoiceInput } from "../voice/index.js";
 import { PERSONALITIES } from "../ai/personality.js";
 import { runTour } from "./tour.js";
 import { runBriefing } from "./briefing.js";
@@ -24,7 +25,7 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 // ── return type ───────────────────────────────────────────────────────────────
 
 export type SlashResult =
-  | { kind: "message"; text: string; attachment?: Attachment }
+  | { kind: "message"; text: string; attachment?: Attachment; speak?: boolean }
   | { kind: "handled" }
   | { kind: "clear" }
   | { kind: "exit" };
@@ -90,6 +91,7 @@ function showHelp(): void {
     row("/status", "What's currently connected and which AI is active"),
     "",
     "  " + chalk.white("── QUICK ACTIONS ───────────────────────────────────────────────────"),
+    row("/voice", "Push-to-talk — speak to JARVIS, hear the reply"),
     row("/reminders", "List & manage active reminders"),
     row("/search", "Search the web (prompts for query)"),
     row("/news", "Search latest news (prompts for query)"),
@@ -496,6 +498,10 @@ async function showMenu(): Promise<string> {
 
         new S(chalk.dim(" ─── QUICK ACTIONS ───────────────────────────────────── ")),
         {
+          name: chalk.yellow("/voice") + chalk.dim("          Push-to-talk — speak, hear the reply"),
+          value: "/voice",
+        },
+        {
           name: chalk.yellow("/attach") + chalk.dim("         Attach a file — image, PDF, Word, code…"),
           value: "/attach",
         },
@@ -609,6 +615,20 @@ export async function handleSlash(
       ]);
       const text = msg.trim() || `Analyze this: ${att.filename}`;
       return { kind: "message", text, attachment: att };
+    }
+
+    case "/voice": {
+      const userId = getActiveUserId();
+      if (userId === null) return { kind: "handled" };
+
+      const result = await captureVoiceInput(userId);
+      if (!result.ok) {
+        console.log(chalk.red(`\n  ${result.error}\n`));
+        return { kind: "handled" };
+      }
+
+      console.log(chalk.dim(`  You said: `) + chalk.white(`"${result.transcript}"`) + "\n");
+      return { kind: "message", text: result.transcript, speak: true };
     }
 
     case "/reminders":
