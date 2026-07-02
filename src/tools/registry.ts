@@ -8,6 +8,7 @@ import {
 import { executeCommandTool } from "./shellTools.js";
 import { editFileTool, createFileTool, deleteFileTool } from "./editTools.js";
 import { rememberTool, forgetTool, recallTool } from "./memoryTools.js";
+import { webSearchTool, webNewsTool } from "./webSearch.js";
 import {
   telegramConnectTool,
   telegramSendTool,
@@ -542,6 +543,50 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: [],
     },
   },
+
+  // ── Web Search ────────────────────────────────────────────────────────────
+  {
+    name: "web_search",
+    description:
+      "Search the web via Google (Serper) and return ranked results with titles, snippets, and URLs. " +
+      "Use for any question that needs current information: latest versions, news, prices, docs, " +
+      "people, places, how-to guides, or anything that may have changed since training. " +
+      "Prefer this over guessing when facts could be outdated.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query. Be specific — good queries get better results.",
+        },
+        num: {
+          type: "number",
+          description: "Number of results to return (default 8, max 10).",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "web_news",
+    description:
+      "Search for recent news articles on a topic via Google News (Serper). " +
+      "Use when the user asks about breaking news, recent events, or 'what's happening with X'.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The news search query.",
+        },
+        num: {
+          type: "number",
+          description: "Number of articles to return (default 8).",
+        },
+      },
+      required: ["query"],
+    },
+  },
 ];
 
 export async function runTool(
@@ -657,6 +702,10 @@ export async function runTool(
       return gmailReadTool(Number(args.uid));
     case "gmail_disconnect":
       return gmailDisconnectTool();
+    case "web_search":
+      return webSearchTool(args.query as string, args.num ? Number(args.num) : undefined);
+    case "web_news":
+      return webNewsTool(args.query as string, args.num ? Number(args.num) : undefined);
     default:
       return { ok: false, output: `Unknown tool: ${name}` };
   }

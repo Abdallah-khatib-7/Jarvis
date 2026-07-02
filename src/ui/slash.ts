@@ -76,6 +76,8 @@ function showHelp(): void {
     row("/status", "What's currently connected and which AI is active"),
     "",
     "  " + chalk.white("── QUICK ACTIONS ───────────────────────────────────────────────────"),
+    row("/search", "Search the web (prompts for query)"),
+    row("/news", "Search latest news (prompts for query)"),
     row("/inbox", "Open Gmail inbox (last 15 emails)"),
     row("/repos", "List your GitHub repositories"),
     row("/prs", "Your open pull requests"),
@@ -327,6 +329,14 @@ async function showMenu(): Promise<string> {
 
         new S(chalk.dim(" ─── QUICK ACTIONS ───────────────────────────────────── ")),
         {
+          name: chalk.yellow("/search") + chalk.dim("         Search the web"),
+          value: "/search",
+        },
+        {
+          name: chalk.yellow("/news") + chalk.dim("           Search latest news"),
+          value: "/news",
+        },
+        {
           name: chalk.yellow("/inbox") + chalk.dim("          Open Gmail inbox"),
           value: "/inbox",
         },
@@ -404,6 +414,20 @@ export async function handleSlash(
 
     case "/disconnect":
       return disconnectService();
+
+    case "/search": {
+      const { q } = await inquirer.prompt<{ q: string }>([
+        { type: "input", name: "q", message: "Search the web:" },
+      ]);
+      return q.trim() ? { kind: "message", text: `search the web for: ${q.trim()}` } : { kind: "handled" };
+    }
+
+    case "/news": {
+      const { q } = await inquirer.prompt<{ q: string }>([
+        { type: "input", name: "q", message: "Search news:" },
+      ]);
+      return q.trim() ? { kind: "message", text: `search for recent news about: ${q.trim()}` } : { kind: "handled" };
+    }
 
     case "/inbox":
       return { kind: "message", text: "check my gmail inbox" };
