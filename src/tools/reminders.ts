@@ -12,7 +12,9 @@ import {
 import { getFact, setFact } from "../database/memory.js";
 import { getActiveUserId } from "./memoryTools.js";
 import { stopThinking } from "../ui/thinking.js";
+import { voiceFor } from "../ai/personality.js";
 import type { ToolResult } from "./fileTools.js";
+import type { ChatMessage } from "../ai/types.js";
 
 // ── in-memory timeout handles (for cancellation) ──────────────────────────────
 
@@ -42,33 +44,123 @@ function fmtRemaining(fireAt: Date): string {
   return fmtDuration(mins);
 }
 
+// ── personality-aware message generation ─────────────────────────────────────
+
+function personalityFallback(raw: string, personality: string, missed: boolean): string {
+  switch (personality) {
+    case "cinematic":
+      return missed
+        ? `Sir, this one slipped through while I was offline — you wanted to: ${raw}.`
+        : `Sir, a gentle nudge — ${raw}.`;
+    case "warm":
+      return missed
+        ? `Hey! Catching up on a missed one — don't forget: ${raw}!`
+        : `Hey! Just a friendly reminder — ${raw}!`;
+    case "playful":
+      return missed
+        ? `Whoops, missed this one! Past-you said: ${raw}. Get on it!`
+        : `Ding ding! ${raw} — don't let me down!`;
+    case "professional":
+      return missed
+        ? `Overdue reminder: ${raw}.`
+        : `Reminder: ${raw}.`;
+    default:
+      return missed ? `Missed reminder: ${raw}` : raw;
+  }
+}
+
+async function generateVoiceMessage(
+  raw: string,
+  userId: number,
+  missed: boolean
+): Promise<string> {
+  try {
+    const pref = getFact(userId, "ai_provider");
+    const personality = getFact(userId, "personality") ?? "cinematic";
+    const voice = voiceFor(personality);
+
+    let provider: { chat(msgs: ChatMessage[]): Promise<string> } | null = null;
+
+    if (pref === "claude" && process.env.ANTHROPIC_API_KEY) {
+      const { claudeProvider } = await import("../ai/claude.js");
+      provider = claudeProvider;
+    } else if (pref === "openai" && process.env.OPENAI_API_KEY) {
+      const { openAIProvider } = await import("../ai/openai.js");
+      provider = openAIProvider;
+    } else if (process.env.ANTHROPIC_API_KEY) {
+      const { claudeProvider } = await import("../ai/claude.js");
+      provider = claudeProvider;
+    } else if (process.env.OPENAI_API_KEY) {
+      const { openAIProvider } = await import("../ai/openai.js");
+      provider = openAIProvider;
+    }
+
+    if (!provider) return personalityFallback(raw, personality, missed);
+
+    const context = missed
+      ? `This reminder fired while you were offline. Deliver it now as a missed reminder.`
+      : `This reminder is firing right on time.`;
+
+    const messages: ChatMessage[] = [
+      {
+        role: "system",
+        content: `You are JARVIS. Voice: ${voice}. Deliver reminders in character — address the user directly, warmly but in your personality. Keep it to 1–2 short sentences. Never use emojis. Never repeat the word "reminder". Output ONLY the spoken message, nothing else.`,
+      },
+      {
+        role: "user",
+        content: `${context} The reminder is: "${raw}"`,
+      },
+    ];
+
+    const reply = await provider.chat(messages);
+    return reply.trim();
+  } catch {
+    const personality = getFact(userId, "personality") ?? "cinematic";
+    return personalityFallback(raw, personality, missed);
+  }
+}
+
 // ── fire a reminder ───────────────────────────────────────────────────────────
 
 async function fireReminder(row: ReminderRow, missed = false): Promise<void> {
   markFired(row.id);
   _handles.delete(row.id);
 
+  // Ring the bell immediately so the user notices
+  process.stdout.write("\x07");
+
+  // Generate the personality-aware spoken message
+  const spoken = await generateVoiceMessage(row.message, row.user_id, missed);
+
+  // ── terminal panel ─────────────────────────────────────────────────────────
   const w = termWidth();
   const tag = missed ? " ⏰ MISSED REMINDER " : " ⏰ REMINDER ";
   const fill = "─".repeat(Math.max(0, w - 2 - tag.length));
+  const maxW = w - 6;
 
-  process.stdout.write("\x07\n");
+  process.stdout.write("\n");
   process.stdout.write(chalk.yellow(`╭─${tag}${fill}`) + "\n");
-  if (missed) {
-    process.stdout.write(
-      chalk.yellow("│") + "  " + chalk.dim("(was set while JARVIS was running — fired on reconnect)") + "\n"
-    );
+
+  // Word-wrap the spoken message inside the panel
+  const words = spoken.split(" ");
+  let line = "";
+  for (const word of words) {
+    if ((line + " " + word).trim().length > maxW && line) {
+      process.stdout.write(chalk.yellow("│") + "  " + chalk.white(line) + "\n");
+      line = word;
+    } else {
+      line = line ? line + " " + word : word;
+    }
   }
-  process.stdout.write(chalk.yellow("│") + "  " + chalk.bold.white(row.message) + "\n");
-  process.stdout.write(chalk.dim(`  via ${row.delivery}`) + "\n");
+  if (line) process.stdout.write(chalk.yellow("│") + "  " + chalk.white(line) + "\n");
+
   process.stdout.write(chalk.yellow(`╰${"─".repeat(w - 1)}`) + "\n\n");
 
   // ── deliver ────────────────────────────────────────────────────────────────
   if (row.delivery === "telegram") {
     try {
       const { telegramSendTool } = await import("../connectors/telegram.js");
-      const prefix = missed ? "⏰ Missed reminder" : "⏰ Reminder";
-      await telegramSendTool(`${prefix}: ${row.message}`);
+      await telegramSendTool(spoken);
     } catch {
       process.stdout.write(chalk.dim("  (Telegram not reachable — terminal alert only)\n\n"));
     }
@@ -78,13 +170,8 @@ async function fireReminder(row: ReminderRow, missed = false): Promise<void> {
       if (gmailRaw) {
         const { email, password } = JSON.parse(gmailRaw) as { email: string; password: string };
         const { sendEmailDirect } = await import("../connectors/gmail.js");
-        const subject = missed
-          ? `⏰ Missed Reminder: ${row.message}`
-          : `⏰ Reminder: ${row.message}`;
-        const body = missed
-          ? `JARVIS reminder (fired while offline):\n\n${row.message}`
-          : `Your JARVIS reminder:\n\n${row.message}`;
-        await sendEmailDirect(email, password, row.gmail_to, subject, body);
+        const subject = missed ? `⏰ JARVIS — Missed Reminder` : `⏰ JARVIS — Reminder`;
+        await sendEmailDirect(email, password, row.gmail_to, subject, spoken);
       }
     } catch {
       process.stdout.write(chalk.dim("  (Gmail not reachable — terminal alert only)\n\n"));
