@@ -11,7 +11,7 @@ db.exec(`
   );
 `);
 
-export const DAILY_LIMIT = 75_000;
+export const DAILY_LIMIT = 150_000;
 export const WARN_AT = 0.90;
 
 export function addTokens(userId: number, tokens: number, model: string): void {

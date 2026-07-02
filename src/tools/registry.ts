@@ -50,256 +50,180 @@ export interface ToolDefinition {
 }
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
+  // ── File ops ──────────────────────────────────────────────────────────────
   {
     name: "read_file",
-    description:
-      "Read the contents of a text file. Returns content with 1-indexed line numbers so you can reference exact lines accurately.",
+    description: "Read a file with line numbers.",
     parameters: {
       type: "object",
-      properties: {
-        path: { type: "string", description: "Relative or absolute file path." },
-      },
+      properties: { path: { type: "string", description: "File path." } },
       required: ["path"],
     },
   },
   {
     name: "list_directory",
-    description: "List files and folders inside the given directory path.",
+    description: "List files and folders in a directory.",
     parameters: {
       type: "object",
-      properties: {
-        path: { type: "string", description: "Relative or absolute directory path." },
-      },
+      properties: { path: { type: "string", description: "Directory path." } },
       required: ["path"],
     },
   },
   {
     name: "search_files",
-    description:
-      "Search the project for files whose NAME contains the query string. Use this when you don't know where a file lives.",
+    description: "Find files by name.",
     parameters: {
       type: "object",
-      properties: {
-        query: { type: "string", description: "Text to search for in filenames." },
-      },
+      properties: { query: { type: "string", description: "Filename search term." } },
       required: ["query"],
     },
   },
   {
     name: "grep_files",
-    description:
-      "Search file CONTENTS across the project for a pattern (regex or plain text). Returns matching lines with file path and line number. Use this to find where a function, variable, or string is defined or used.",
+    description: "Search file contents by regex or text.",
     parameters: {
       type: "object",
       properties: {
-        pattern: {
-          type: "string",
-          description: "Regex or plain-text pattern to search for inside files.",
-        },
-        path: {
-          type: "string",
-          description: "Optional directory to search within. Defaults to the project root.",
-        },
+        pattern: { type: "string", description: "Regex or text to find." },
+        path: { type: "string", description: "Directory to search (optional)." },
       },
       required: ["pattern"],
     },
   },
   {
     name: "execute_command",
-    description:
-      "Run a shell command and return its combined stdout + stderr. " +
-      "Read-only commands (tsc, npm test, npm run <script>, jest, git status/log/diff/branch/show, npx, node <file>) " +
-      "run automatically. Commands that may modify files or the system pause and ask the user to confirm first. " +
-      "Use this to check TypeScript errors, run tests, or inspect runtime state.",
+    description: "Run a shell command. Read-only commands (tsc, npm, git status/log/diff) run automatically; destructive commands need user confirmation.",
     parameters: {
       type: "object",
-      properties: {
-        command: { type: "string", description: "The shell command to run." },
-      },
+      properties: { command: { type: "string", description: "Shell command." } },
       required: ["command"],
     },
   },
   {
     name: "edit_file",
-    description:
-      "Replace an exact string in an existing file with new content. " +
-      "Always read_file first to get the exact current text. " +
-      "old_string must appear exactly once — include enough surrounding lines to make it unique. " +
-      "The user will see a diff before the change is applied.",
+    description: "Replace exact text in a file. Read file first. old_string must match exactly and be unique.",
     parameters: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Path to the file to edit." },
-        old_string: {
-          type: "string",
-          description:
-            "The exact text to find and replace. Must match file contents character-for-character including whitespace.",
-        },
-        new_string: {
-          type: "string",
-          description: "The replacement text.",
-        },
+        path: { type: "string", description: "File path." },
+        old_string: { type: "string", description: "Exact text to replace." },
+        new_string: { type: "string", description: "Replacement text." },
       },
       required: ["path", "old_string", "new_string"],
     },
   },
   {
     name: "create_file",
-    description:
-      "Create a new file with the given content. Fails if the file already exists — use edit_file to modify existing files. " +
-      "The user will see a content preview before the file is written.",
+    description: "Create a new file. Fails if file exists — use edit_file to modify.",
     parameters: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Path of the file to create." },
-        content: { type: "string", description: "Full content of the new file." },
+        path: { type: "string", description: "File path." },
+        content: { type: "string", description: "File content." },
       },
       required: ["path", "content"],
     },
   },
   {
     name: "delete_file",
-    description:
-      "Permanently delete a file. The user will see a file preview and must confirm before deletion.",
+    description: "Delete a file permanently. User must confirm.",
     parameters: {
       type: "object",
-      properties: {
-        path: { type: "string", description: "Path to the file to delete." },
-      },
+      properties: { path: { type: "string", description: "File path." } },
       required: ["path"],
     },
   },
+
+  // ── Memory ────────────────────────────────────────────────────────────────
   {
     name: "remember",
-    description:
-      "Store a fact about the user in long-term memory. " +
-      "Call this proactively whenever you learn something worth keeping across sessions: " +
-      "preferences (coding style, tools, language), project context (what they're building, tech stack), " +
-      "or personal details (profession, goals). Use lowercase_snake_case keys. " +
-      "Calling remember overwrites any existing value for that key.",
+    description: "Store a fact about the user in long-term memory. Use snake_case keys.",
     parameters: {
       type: "object",
       properties: {
-        key: {
-          type: "string",
-          description:
-            "Snake_case identifier for this fact. E.g. preferred_language, current_project, works_as, uses_tabs.",
-        },
-        value: {
-          type: "string",
-          description: "The value to store. Keep it concise — one short phrase.",
-        },
+        key: { type: "string", description: "Snake_case key (e.g. preferred_language)." },
+        value: { type: "string", description: "Value to store." },
       },
       required: ["key", "value"],
     },
   },
   {
     name: "forget",
-    description:
-      "Remove a stored fact from the user's memory by key. " +
-      "Use when the user says something you remembered was wrong, or explicitly asks you to forget something.",
+    description: "Remove a fact from memory by key.",
     parameters: {
       type: "object",
-      properties: {
-        key: {
-          type: "string",
-          description: "The key of the fact to remove.",
-        },
-      },
+      properties: { key: { type: "string", description: "Key to remove." } },
       required: ["key"],
     },
   },
   {
     name: "recall",
-    description:
-      "Retrieve all facts currently stored in the user's memory. " +
-      "Use this mid-conversation if you need to check what you know — " +
-      "especially after calling remember, since the system prompt reflects the state from when this session started.",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    description: "Get all stored memory facts.",
+    parameters: { type: "object", properties: {}, required: [] },
   },
 
-  // ── GitHub connector (requires GITHUB_TOKEN in .env) ─────────────────────
+  // ── GitHub ────────────────────────────────────────────────────────────────
   {
     name: "github_search",
-    description:
-      "Search GitHub issues and pull requests using GitHub search syntax. " +
-      "Examples: 'is:pr is:open author:@me' · 'is:issue is:open assignee:@me' · 'is:issue repo:owner/repo bug'. " +
-      "Use this first when you don't know the exact repo or number.",
+    description: "Search GitHub issues/PRs. Use GitHub search syntax (is:pr is:open author:@me).",
     parameters: {
       type: "object",
-      properties: {
-        query: { type: "string", description: "GitHub search query string." },
-      },
+      properties: { query: { type: "string", description: "GitHub search query." } },
       required: ["query"],
     },
   },
   {
     name: "github_list_repos",
-    description: "List the authenticated user's GitHub repositories, sorted by last updated.",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    description: "List the user's GitHub repositories.",
+    parameters: { type: "object", properties: {}, required: [] },
   },
   {
     name: "github_get_repo",
-    description:
-      "Get overview info for a GitHub repository: description, language, stars, forks, topics, default branch. " +
-      "Use this when the user asks about a project in general.",
+    description: "Get repo info: description, language, stars, topics.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner (username or org)." },
-        repo: { type: "string", description: "Repository name." },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
       },
       required: ["owner", "repo"],
     },
   },
   {
     name: "github_get_file",
-    description:
-      "Read the contents of any file in a GitHub repository (README, source files, configs, etc.). " +
-      "Returns the decoded text content. Also works as a directory listing if path points to a folder. " +
-      "Use this whenever the user asks about a file in a remote repo — README.md, package.json, etc.",
+    description: "Read a file from a GitHub repo. Use for remote files, not local ones.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner." },
-        repo: { type: "string", description: "Repository name." },
-        path: { type: "string", description: "File path within the repo, e.g. README.md or src/index.ts." },
-        ref: { type: "string", description: "Branch, tag, or commit SHA. Defaults to the repo's default branch." },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
+        path: { type: "string", description: "File path in repo." },
+        ref: { type: "string", description: "Branch/tag/SHA (optional)." },
       },
       required: ["owner", "repo", "path"],
     },
   },
   {
     name: "github_get_pr",
-    description:
-      "Get full details for a GitHub pull request: title, description, changed files, and review status.",
+    description: "Get PR details: title, description, changed files, reviews.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner (username or org)." },
-        repo: { type: "string", description: "Repository name." },
-        number: { type: "number", description: "Pull request number." },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
+        number: { type: "number", description: "PR number." },
       },
       required: ["owner", "repo", "number"],
     },
   },
   {
     name: "github_get_issue",
-    description:
-      "Get full details for a GitHub issue: title, description, labels, assignees, and comments.",
+    description: "Get issue details: title, body, labels, comments.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner (username or org)." },
-        repo: { type: "string", description: "Repository name." },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
         number: { type: "number", description: "Issue number." },
       },
       required: ["owner", "repo", "number"],
@@ -307,28 +231,26 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "github_create_issue",
-    description:
-      "Create a new GitHub issue. Shows a preview panel and asks the user to confirm before posting.",
+    description: "Create a GitHub issue. Shows preview, user confirms.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner." },
-        repo: { type: "string", description: "Repository name." },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
         title: { type: "string", description: "Issue title." },
-        body: { type: "string", description: "Issue body (markdown). Optional." },
+        body: { type: "string", description: "Issue body (markdown, optional)." },
       },
       required: ["owner", "repo", "title"],
     },
   },
   {
     name: "github_comment",
-    description:
-      "Post a comment on a GitHub issue or pull request. Shows a preview and asks the user to confirm before posting.",
+    description: "Post a comment on an issue or PR. Shows preview, user confirms.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner." },
-        repo: { type: "string", description: "Repository name." },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
         number: { type: "number", description: "Issue or PR number." },
         body: { type: "string", description: "Comment text (markdown)." },
       },
@@ -337,253 +259,166 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "github_create_pr",
-    description:
-      "Open a new GitHub pull request. Shows a preview panel and asks the user to confirm before posting. " +
-      "head is the source branch, base is the target (usually main or master).",
+    description: "Open a PR (head→base). Shows preview, user confirms.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner." },
-        repo: { type: "string", description: "Repository name." },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
         title: { type: "string", description: "PR title." },
-        head: { type: "string", description: "Source branch (the branch with your changes)." },
-        base: { type: "string", description: "Target branch to merge into, e.g. main." },
-        body: { type: "string", description: "PR description (markdown). Optional." },
-        draft: { type: "string", description: "Pass 'true' to open as a draft PR. Optional." },
+        head: { type: "string", description: "Source branch." },
+        base: { type: "string", description: "Target branch (e.g. main)." },
+        body: { type: "string", description: "PR description (optional)." },
+        draft: { type: "string", description: "'true' for draft PR (optional)." },
       },
       required: ["owner", "repo", "title", "head", "base"],
     },
   },
   {
     name: "github_list_runs",
-    description:
-      "List recent GitHub Actions workflow runs for a repository. " +
-      "Shows run status (success/failure/in_progress), branch, duration, and time. " +
-      "Optionally filter to a specific workflow file.",
+    description: "List recent GitHub Actions workflow runs.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner." },
-        repo: { type: "string", description: "Repository name." },
-        workflow: {
-          type: "string",
-          description: "Optional workflow filename to filter by, e.g. 'ci.yml'. Omit to see all workflows.",
-        },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
+        workflow: { type: "string", description: "Workflow filename to filter (optional)." },
       },
       required: ["owner", "repo"],
     },
   },
   {
     name: "github_trigger_workflow",
-    description:
-      "Trigger a GitHub Actions workflow_dispatch event. " +
-      "The workflow must have 'on: workflow_dispatch' configured. " +
-      "Shows a preview panel and asks the user to confirm before triggering.",
+    description: "Trigger a workflow_dispatch workflow. Shows preview, user confirms.",
     parameters: {
       type: "object",
       properties: {
-        owner: { type: "string", description: "Repository owner." },
-        repo: { type: "string", description: "Repository name." },
-        workflow: { type: "string", description: "Workflow filename, e.g. 'deploy.yml'." },
-        ref: { type: "string", description: "Branch or tag to run the workflow on, e.g. 'main'." },
-        inputs: {
-          type: "string",
-          description:
-            "Optional JSON string of workflow dispatch inputs, e.g. '{\"environment\":\"staging\"}'.",
-        },
+        owner: { type: "string", description: "Repo owner." },
+        repo: { type: "string", description: "Repo name." },
+        workflow: { type: "string", description: "Workflow filename (e.g. deploy.yml)." },
+        ref: { type: "string", description: "Branch or tag." },
+        inputs: { type: "string", description: "JSON inputs string (optional)." },
       },
       required: ["owner", "repo", "workflow", "ref"],
     },
   },
   {
     name: "github_disconnect",
-    description:
-      "Remove the stored GitHub token for the current user. " +
-      "Call this when the user wants to disconnect GitHub, rotate their token, or fix authentication errors.",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    description: "Remove stored GitHub token.",
+    parameters: { type: "object", properties: {}, required: [] },
   },
 
-  // ── Telegram connector ────────────────────────────────────────────────────
+  // ── Telegram ──────────────────────────────────────────────────────────────
   {
     name: "telegram_connect",
-    description:
-      "Start or redo the Telegram connection setup. " +
-      "Call this when the user says 'connect telegram', 'set up telegram', 'try again' after a failed connection, " +
-      "or wants to switch to a different bot. Clears any broken state before prompting.",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    description: "Set up Telegram connection (bot token + chat ID).",
+    parameters: { type: "object", properties: {}, required: [] },
   },
   {
     name: "telegram_send",
-    description:
-      "Send a text message to the user's Telegram account via their personal bot. " +
-      "Use this proactively to notify the user when long tasks complete, tests pass or fail, " +
-      "or when something important happens that they'd want to know on their phone. " +
-      "Supports basic HTML formatting: <b>bold</b>, <i>italic</i>, <code>code</code>.",
+    description: "Send a text message to the user's Telegram. HTML: <b>bold</b> <code>code</code>.",
     parameters: {
       type: "object",
-      properties: {
-        message: {
-          type: "string",
-          description: "The message text to send. HTML formatting supported.",
-        },
-      },
+      properties: { message: { type: "string", description: "Message text (HTML ok)." } },
       required: ["message"],
     },
   },
   {
     name: "telegram_send_file",
-    description:
-      "Send a local file (log, report, image, output) to the user's Telegram account. " +
-      "Use this to deliver build outputs, error logs, or generated files straight to their phone.",
+    description: "Send a local file to the user's Telegram.",
     parameters: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Local file path to send." },
-        caption: { type: "string", description: "Optional caption shown below the file." },
+        path: { type: "string", description: "Local file path." },
+        caption: { type: "string", description: "Caption (optional)." },
       },
       required: ["path"],
     },
   },
   {
     name: "telegram_disconnect",
-    description:
-      "Disconnect Telegram — clears the stored token and chat ID for the current user. " +
-      "Call this when the user wants to change their bot or revoke access.",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    description: "Remove stored Telegram credentials.",
+    parameters: { type: "object", properties: {}, required: [] },
   },
 
-  // ── Gmail connector ───────────────────────────────────────────────────────
+  // ── Gmail ─────────────────────────────────────────────────────────────────
   {
     name: "gmail_connect",
-    description:
-      "Set up or redo Gmail connection. Prompts for Gmail address and App Password, " +
-      "verifies them, then asks whether to remember. Call when user says 'connect gmail', " +
-      "'set up gmail', or 'try again' after a failed connection.",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    description: "Set up Gmail with App Password.",
+    parameters: { type: "object", properties: {}, required: [] },
   },
   {
     name: "gmail_send",
-    description:
-      "Send an email from the user's Gmail account. Shows a preview panel and asks to confirm before sending.",
+    description: "Send an email. Shows preview, user confirms.",
     parameters: {
       type: "object",
       properties: {
-        to: { type: "string", description: "Recipient email address." },
-        subject: { type: "string", description: "Email subject line." },
-        body: { type: "string", description: "Plain text email body." },
+        to: { type: "string", description: "Recipient email." },
+        subject: { type: "string", description: "Subject line." },
+        body: { type: "string", description: "Plain text body." },
       },
       required: ["to", "subject", "body"],
     },
   },
   {
     name: "gmail_inbox",
-    description:
-      "List recent emails in the user's Gmail inbox. Shows UID, sender, subject, date, and read status. " +
-      "Use UIDs with gmail_read to open a specific email.",
+    description: "List recent inbox emails with UIDs.",
     parameters: {
       type: "object",
-      properties: {
-        limit: { type: "number", description: "Number of recent emails to show. Default 15." },
-      },
+      properties: { limit: { type: "number", description: "Max emails (default 15)." } },
       required: [],
     },
   },
   {
     name: "gmail_search",
-    description:
-      "Search emails in the inbox by sender, subject, body text, or read status. " +
-      "Provide at least one filter. Returns UIDs you can pass to gmail_read.",
+    description: "Search emails by from/subject/text/unread.",
     parameters: {
       type: "object",
       properties: {
-        from: { type: "string", description: "Filter by sender name or email address." },
-        subject: { type: "string", description: "Filter by subject keyword." },
-        text: { type: "string", description: "Search inside email body." },
-        unread: { type: "string", description: "Pass 'true' to show only unread emails." },
+        from: { type: "string", description: "Sender filter." },
+        subject: { type: "string", description: "Subject keyword." },
+        text: { type: "string", description: "Body text search." },
+        unread: { type: "string", description: "'true' for unread only." },
       },
       required: [],
     },
   },
   {
     name: "gmail_read",
-    description:
-      "Read the full content of a specific email by its UID. " +
-      "Get UIDs from gmail_inbox or gmail_search.",
+    description: "Read a full email by UID.",
     parameters: {
       type: "object",
-      properties: {
-        uid: { type: "number", description: "The email UID from gmail_inbox or gmail_search." },
-      },
+      properties: { uid: { type: "number", description: "Email UID from inbox/search." } },
       required: ["uid"],
     },
   },
   {
     name: "gmail_disconnect",
-    description:
-      "Remove stored Gmail credentials for the current user. " +
-      "Call when the user wants to switch accounts or revoke access.",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    description: "Remove stored Gmail credentials.",
+    parameters: { type: "object", properties: {}, required: [] },
   },
 
-  // ── Web Search ────────────────────────────────────────────────────────────
+  // ── Web search ────────────────────────────────────────────────────────────
   {
     name: "web_search",
-    description:
-      "Search the web via Google (Serper) and return ranked results with titles, snippets, and URLs. " +
-      "Use for any question that needs current information: latest versions, news, prices, docs, " +
-      "people, places, how-to guides, or anything that may have changed since training. " +
-      "Prefer this over guessing when facts could be outdated.",
+    description: "Search Google. Use for current info: prices, versions, docs, news.",
     parameters: {
       type: "object",
       properties: {
-        query: {
-          type: "string",
-          description: "The search query. Be specific — good queries get better results.",
-        },
-        num: {
-          type: "number",
-          description: "Number of results to return (default 8, max 10).",
-        },
+        query: { type: "string", description: "Search query." },
+        num: { type: "number", description: "Results count (default 8)." },
       },
       required: ["query"],
     },
   },
   {
     name: "web_news",
-    description:
-      "Search for recent news articles on a topic via Google News (Serper). " +
-      "Use when the user asks about breaking news, recent events, or 'what's happening with X'.",
+    description: "Search Google News for recent articles.",
     parameters: {
       type: "object",
       properties: {
-        query: {
-          type: "string",
-          description: "The news search query.",
-        },
-        num: {
-          type: "number",
-          description: "Number of articles to return (default 8).",
-        },
+        query: { type: "string", description: "News search query." },
+        num: { type: "number", description: "Articles count (default 8)." },
       },
       required: ["query"],
     },
@@ -592,45 +427,27 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   // ── Reminders ─────────────────────────────────────────────────────────────
   {
     name: "remind_me",
-    description:
-      "Schedule a reminder that fires after a delay. " +
-      "When it fires, it rings the terminal bell, shows an alert panel, and sends a Telegram message if connected. " +
-      "Parse natural language: 'in 30 minutes' → 30, 'in 2 hours' → 120, 'in 1.5 hours' → 90.",
+    description: "Schedule a reminder. Parse natural language: '30 min'→30, '2 hours'→120.",
     parameters: {
       type: "object",
       properties: {
-        message: {
-          type: "string",
-          description: "What to remind the user about. Keep it concise.",
-        },
-        delay_minutes: {
-          type: "number",
-          description: "How many minutes from now to fire the reminder (min 1, max 1440).",
-        },
+        message: { type: "string", description: "Reminder text." },
+        delay_minutes: { type: "number", description: "Minutes from now (1–1440)." },
       },
       required: ["message", "delay_minutes"],
     },
   },
   {
     name: "list_reminders",
-    description: "List all active (pending) reminders with their IDs and time remaining.",
-    parameters: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
+    description: "List active reminders with IDs and time remaining.",
+    parameters: { type: "object", properties: {}, required: [] },
   },
   {
     name: "cancel_reminder",
-    description: "Cancel an active reminder by its ID. Get IDs from list_reminders.",
+    description: "Cancel a reminder by ID.",
     parameters: {
       type: "object",
-      properties: {
-        id: {
-          type: "number",
-          description: "The reminder ID to cancel.",
-        },
-      },
+      properties: { id: { type: "number", description: "Reminder ID." } },
       required: ["id"],
     },
   },
@@ -641,125 +458,44 @@ export async function runTool(
   args: Record<string, unknown>
 ): Promise<ToolResult> {
   switch (name) {
-    case "read_file":
-      return readFileTool(args.path as string);
-    case "list_directory":
-      return listDirectoryTool(args.path as string);
-    case "search_files":
-      return searchFilesTool(args.query as string);
-    case "grep_files":
-      return grepFilesTool(args.pattern as string, args.path as string | undefined);
-    case "execute_command":
-      return executeCommandTool(args.command as string);
-    case "edit_file":
-      return editFileTool(
-        args.path as string,
-        args.old_string as string,
-        args.new_string as string
-      );
-    case "create_file":
-      return createFileTool(args.path as string, args.content as string);
-    case "delete_file":
-      return deleteFileTool(args.path as string);
-    case "remember":
-      return rememberTool(args.key as string, args.value as string);
-    case "forget":
-      return forgetTool(args.key as string);
-    case "recall":
-      return recallTool();
-    case "github_search":
-      return githubSearchTool(args.query as string);
-    case "github_list_repos":
-      return githubListReposTool();
-    case "github_get_repo":
-      return githubGetRepoTool(args.owner as string, args.repo as string);
-    case "github_get_file":
-      return githubGetFileTool(
-        args.owner as string,
-        args.repo as string,
-        args.path as string,
-        args.ref as string | undefined
-      );
-    case "github_get_pr":
-      return githubGetPrTool(args.owner as string, args.repo as string, Number(args.number));
-    case "github_get_issue":
-      return githubGetIssueTool(args.owner as string, args.repo as string, Number(args.number));
-    case "github_create_issue":
-      return githubCreateIssueTool(
-        args.owner as string,
-        args.repo as string,
-        args.title as string,
-        args.body as string | undefined
-      );
-    case "github_comment":
-      return githubCommentTool(
-        args.owner as string,
-        args.repo as string,
-        Number(args.number),
-        args.body as string
-      );
-    case "github_create_pr":
-      return githubCreatePrTool(
-        args.owner as string,
-        args.repo as string,
-        args.title as string,
-        args.head as string,
-        args.base as string,
-        args.body as string | undefined,
-        args.draft === "true" || args.draft === true
-      );
-    case "github_list_runs":
-      return githubListRunsTool(
-        args.owner as string,
-        args.repo as string,
-        args.workflow as string | undefined
-      );
-    case "github_trigger_workflow":
-      return githubTriggerWorkflowTool(
-        args.owner as string,
-        args.repo as string,
-        args.workflow as string,
-        args.ref as string,
-        args.inputs ? (JSON.parse(args.inputs as string) as Record<string, string>) : undefined
-      );
-    case "github_disconnect":
-      return githubDisconnectTool();
-    case "telegram_connect":
-      return telegramConnectTool();
-    case "telegram_send":
-      return telegramSendTool(args.message as string);
-    case "telegram_send_file":
-      return telegramSendFileTool(args.path as string, args.caption as string | undefined);
-    case "telegram_disconnect":
-      return telegramDisconnectTool();
-    case "gmail_connect":
-      return gmailConnectTool();
-    case "gmail_send":
-      return gmailSendTool(args.to as string, args.subject as string, args.body as string);
-    case "gmail_inbox":
-      return gmailInboxTool(args.limit ? Number(args.limit) : undefined);
-    case "gmail_search":
-      return gmailSearchTool(
-        args.from as string | undefined,
-        args.subject as string | undefined,
-        args.text as string | undefined,
-        args.unread === "true" || args.unread === true
-      );
-    case "gmail_read":
-      return gmailReadTool(Number(args.uid));
-    case "gmail_disconnect":
-      return gmailDisconnectTool();
-    case "web_search":
-      return webSearchTool(args.query as string, args.num ? Number(args.num) : undefined);
-    case "web_news":
-      return webNewsTool(args.query as string, args.num ? Number(args.num) : undefined);
-    case "remind_me":
-      return setReminderTool(args.message as string, Number(args.delay_minutes));
-    case "list_reminders":
-      return listRemindersTool();
-    case "cancel_reminder":
-      return cancelReminderTool(Number(args.id));
-    default:
-      return { ok: false, output: `Unknown tool: ${name}` };
+    case "read_file":          return readFileTool(args.path as string);
+    case "list_directory":     return listDirectoryTool(args.path as string);
+    case "search_files":       return searchFilesTool(args.query as string);
+    case "grep_files":         return grepFilesTool(args.pattern as string, args.path as string | undefined);
+    case "execute_command":    return executeCommandTool(args.command as string);
+    case "edit_file":          return editFileTool(args.path as string, args.old_string as string, args.new_string as string);
+    case "create_file":        return createFileTool(args.path as string, args.content as string);
+    case "delete_file":        return deleteFileTool(args.path as string);
+    case "remember":           return rememberTool(args.key as string, args.value as string);
+    case "forget":             return forgetTool(args.key as string);
+    case "recall":             return recallTool();
+    case "github_search":      return githubSearchTool(args.query as string);
+    case "github_list_repos":  return githubListReposTool();
+    case "github_get_repo":    return githubGetRepoTool(args.owner as string, args.repo as string);
+    case "github_get_file":    return githubGetFileTool(args.owner as string, args.repo as string, args.path as string, args.ref as string | undefined);
+    case "github_get_pr":      return githubGetPrTool(args.owner as string, args.repo as string, Number(args.number));
+    case "github_get_issue":   return githubGetIssueTool(args.owner as string, args.repo as string, Number(args.number));
+    case "github_create_issue": return githubCreateIssueTool(args.owner as string, args.repo as string, args.title as string, args.body as string | undefined);
+    case "github_comment":     return githubCommentTool(args.owner as string, args.repo as string, Number(args.number), args.body as string);
+    case "github_create_pr":   return githubCreatePrTool(args.owner as string, args.repo as string, args.title as string, args.head as string, args.base as string, args.body as string | undefined, args.draft === "true" || args.draft === true);
+    case "github_list_runs":   return githubListRunsTool(args.owner as string, args.repo as string, args.workflow as string | undefined);
+    case "github_trigger_workflow": return githubTriggerWorkflowTool(args.owner as string, args.repo as string, args.workflow as string, args.ref as string, args.inputs ? (JSON.parse(args.inputs as string) as Record<string, string>) : undefined);
+    case "github_disconnect":  return githubDisconnectTool();
+    case "telegram_connect":   return telegramConnectTool();
+    case "telegram_send":      return telegramSendTool(args.message as string);
+    case "telegram_send_file": return telegramSendFileTool(args.path as string, args.caption as string | undefined);
+    case "telegram_disconnect": return telegramDisconnectTool();
+    case "gmail_connect":      return gmailConnectTool();
+    case "gmail_send":         return gmailSendTool(args.to as string, args.subject as string, args.body as string);
+    case "gmail_inbox":        return gmailInboxTool(args.limit ? Number(args.limit) : undefined);
+    case "gmail_search":       return gmailSearchTool(args.from as string | undefined, args.subject as string | undefined, args.text as string | undefined, args.unread === "true" || args.unread === true);
+    case "gmail_read":         return gmailReadTool(Number(args.uid));
+    case "gmail_disconnect":   return gmailDisconnectTool();
+    case "web_search":         return webSearchTool(args.query as string, args.num ? Number(args.num) : undefined);
+    case "web_news":           return webNewsTool(args.query as string, args.num ? Number(args.num) : undefined);
+    case "remind_me":          return setReminderTool(args.message as string, Number(args.delay_minutes));
+    case "list_reminders":     return listRemindersTool();
+    case "cancel_reminder":    return cancelReminderTool(Number(args.id));
+    default:                   return { ok: false, output: `Unknown tool: ${name}` };
   }
 }
